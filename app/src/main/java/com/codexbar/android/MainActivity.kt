@@ -59,6 +59,7 @@ class MainActivity : AppCompatActivity() {
 
         setContent {
             val appThemeStyle by prefsManager.appThemeStyle.collectAsStateWithLifecycle()
+            val minimalDisplayEnabled by prefsManager.minimalDisplayEnabled.collectAsStateWithLifecycle()
             CodexBarTheme(style = appThemeStyle) {
                 var availableUpdate by remember { mutableStateOf<AvailableUpdate?>(null) }
 
@@ -97,6 +98,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 CodexBarApp(
+                    minimalDisplayEnabled = minimalDisplayEnabled,
                     initialDestination = initialDestination,
                     initialGeminiPairingUri = pendingGeminiPairingUri,
                     onGeminiPairingConsumed = { pendingGeminiPairingUri = null },

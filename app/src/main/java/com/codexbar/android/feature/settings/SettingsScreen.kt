@@ -90,6 +90,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -263,6 +265,28 @@ fun SettingsScreen(
                     selectedStyle = uiState.appThemeStyle,
                     onStyleSelected = viewModel::setAppThemeStyle
                 )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        SettingsToggle(
+                            title = stringResource(R.string.minimal_display_title),
+                            subtitle = stringResource(R.string.minimal_display_description),
+                            checked = uiState.minimalDisplayEnabled,
+                            onCheckedChange = viewModel::setMinimalDisplayEnabled
+                        )
+                    }
+                }
 
                 LanguageSection(
                     selectedLanguage = selectedLanguage,
@@ -2573,7 +2597,7 @@ private fun PrivacySection(
                 style = MaterialTheme.typography.titleMedium
             )
 
-            PrivacyToggle(
+            SettingsToggle(
                 title = stringResource(R.string.privacy_screen_title),
                 subtitle = stringResource(R.string.privacy_screen_description),
                 checked = settings.screenPrivacyEnabled,
@@ -2581,7 +2605,7 @@ private fun PrivacySection(
                     onSettingsChange(settings.copy(screenPrivacyEnabled = it))
                 }
             )
-            PrivacyToggle(
+            SettingsToggle(
                 title = stringResource(R.string.privacy_lock_screen_title),
                 subtitle = stringResource(R.string.privacy_lock_screen_description),
                 checked = settings.lockScreenRedactionEnabled,
@@ -2589,7 +2613,7 @@ private fun PrivacySection(
                     onSettingsChange(settings.copy(lockScreenRedactionEnabled = it))
                 }
             )
-            PrivacyToggle(
+            SettingsToggle(
                 title = stringResource(R.string.privacy_notification_title),
                 subtitle = stringResource(R.string.privacy_notification_description),
                 checked = settings.notificationRedactionEnabled,
@@ -2608,7 +2632,7 @@ private fun PrivacySection(
             }) {
                 Text(stringResource(R.string.privacy_lock_screen_system_settings))
             }
-            PrivacyToggle(
+            SettingsToggle(
                 title = stringResource(R.string.privacy_widget_title),
                 subtitle = stringResource(R.string.privacy_widget_description),
                 checked = settings.widgetRedactionEnabled,
@@ -2621,7 +2645,7 @@ private fun PrivacySection(
 }
 
 @Composable
-private fun PrivacyToggle(
+private fun SettingsToggle(
     title: String,
     subtitle: String,
     checked: Boolean,
@@ -2635,7 +2659,8 @@ private fun PrivacyToggle(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = subtitle,
@@ -2645,7 +2670,8 @@ private fun PrivacyToggle(
         }
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.semantics { contentDescription = title }
         )
     }
 }

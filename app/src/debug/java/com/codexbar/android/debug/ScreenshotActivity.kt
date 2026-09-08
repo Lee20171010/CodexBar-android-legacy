@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.codexbar.android.CodexBarApp
 import com.codexbar.android.core.domain.model.AiService
 import com.codexbar.android.core.domain.model.AppThemeStyle
@@ -95,6 +97,7 @@ class ScreenshotActivity : AppCompatActivity() {
         }
 
         setContent {
+            val minimalDisplayEnabled by prefsManager.minimalDisplayEnabled.collectAsStateWithLifecycle()
             CodexBarTheme(
                 darkTheme = darkTheme,
                 dynamicColor = false,
@@ -103,6 +106,7 @@ class ScreenshotActivity : AppCompatActivity() {
                 CodexBarApp(
                     initialDestination = "dashboard",
                     dashboardPreviewSnapshot = snapshot,
+                    minimalDisplayEnabled = minimalDisplayEnabled,
                     onScreenPrivacyChanged = {}
                 )
             }

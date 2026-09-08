@@ -39,6 +39,8 @@ v0.9.4 adds Antigravity desktop model quotas, distinct compact model labels, and
 
 ## Selectable design systems and Codex insights
 
+In **Settings > Preferences**, enable **Minimal display** to hide the card age on dashboard cards while keeping provider, status, quota windows as horizontal bars with remaining percentages and reset times, and any staleness or error reason. This preference is saved on-device and defaults to off. Tapping a card still opens full details; navigation, connections, widgets, and quota collection are unchanged.
+
 <p align="center">
   <img src="docs/images/releases/v0.9.0/dashboard-material3.png" width="210" alt="Material 3 dashboard" />
   <img src="docs/images/releases/v0.9.0/dashboard-liquid-glass.png" width="210" alt="Liquid Glass dashboard" />

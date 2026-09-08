@@ -71,6 +71,7 @@ fun DashboardScreen(
     onNavigateToConnections: () -> Unit,
     initialSelectedService: AiService? = null,
     onInitialSelectionConsumed: () -> Unit = {},
+    minimalDisplayEnabled: Boolean = false,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -83,6 +84,7 @@ fun DashboardScreen(
 
     DashboardContent(
         uiState = uiState,
+        minimalDisplayEnabled = minimalDisplayEnabled,
         isRefreshing = isRefreshing,
         onRefresh = viewModel::refresh,
         onNavigateToConnections = onNavigateToConnections,
@@ -96,6 +98,7 @@ fun DashboardScreen(
 @Composable
 fun DashboardPreviewScreen(
     snapshot: QuotaPresentationSnapshot,
+    minimalDisplayEnabled: Boolean = false,
     onNavigateToConnections: () -> Unit = {}
 ) {
     var order by remember { mutableStateOf(emptyList<AiService>()) }
@@ -103,6 +106,7 @@ fun DashboardPreviewScreen(
         providerOrder = order,
         onProviderOrderChange = { order = it },
         uiState = DashboardUiState.Content(snapshot),
+        minimalDisplayEnabled = minimalDisplayEnabled,
         isRefreshing = false,
         onRefresh = {},
         onNavigateToConnections = onNavigateToConnections
@@ -113,6 +117,7 @@ fun DashboardPreviewScreen(
 @Composable
 private fun DashboardContent(
     uiState: DashboardUiState,
+    minimalDisplayEnabled: Boolean,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     onNavigateToConnections: () -> Unit,
@@ -234,6 +239,7 @@ private fun DashboardContent(
                                     CardList(
                                         services = visibleServices,
                                         summary = summary,
+                                        minimalDisplayEnabled = minimalDisplayEnabled,
                                         errorBanner = errorBanner,
                                         attentionCount = summary.attentionCount,
                                         showOnlyAttention = filterAttention,
@@ -263,6 +269,7 @@ private fun DashboardContent(
                                 CardList(
                                     services = visibleServices,
                                     summary = summary,
+                                    minimalDisplayEnabled = minimalDisplayEnabled,
                                     errorBanner = errorBanner,
                                     attentionCount = summary.attentionCount,
                                     showOnlyAttention = filterAttention,
@@ -300,6 +307,7 @@ private fun DashboardContent(
 private fun CardList(
     services: List<ServiceQuotaPresentation>,
     summary: DashboardSummary,
+    minimalDisplayEnabled: Boolean,
     errorBanner: String?,
     attentionCount: Int,
     showOnlyAttention: Boolean,
@@ -375,6 +383,7 @@ private fun CardList(
         }
         items(services, key = { it.service.name }) { service ->
             ServiceCard(
+                minimalDisplayEnabled = minimalDisplayEnabled,
                 service = service,
                 onClick = { onServiceClick(service) },
                 selected = service.service.name == selectedServiceName

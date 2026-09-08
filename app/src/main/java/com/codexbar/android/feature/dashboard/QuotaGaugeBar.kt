@@ -46,6 +46,7 @@ import kotlin.math.abs
 fun QuotaGaugeBar(
     metric: QuotaMetricPresentation,
     showExtendedDetails: Boolean = false,
+    showPace: Boolean = true,
     goodColor: Color? = null,
     modifier: Modifier = Modifier
 ) {
@@ -123,8 +124,8 @@ fun QuotaGaugeBar(
 
         val detailLabels = buildList {
             metric.resetLabel?.let(::add)
-            metric.pace.label.takeIf { it.isNotBlank() }?.let(::add)
-            if (showExtendedDetails) {
+            if (showPace) metric.pace.label.takeIf { it.isNotBlank() }?.let(::add)
+            if (showPace && showExtendedDetails) {
                 metric.pace.cycleProgressLabel?.let(::add)
                 metric.pace.usageRateLabel?.let(::add)
                 metric.pace.paceMultiplierLabel?.let(::add)

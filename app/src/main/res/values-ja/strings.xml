@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="minimal_display_title">シンプル表示</string>
+    <string name="minimal_display_description">ダッシュボードのカードで経過時間を非表示にします。利用枠のバー、リセット時刻、状態、エラー理由は表示されたままです。カードをタップすると詳細を確認できます。</string>
     <string name="app_name">CodexBar</string>
     <string name="tile_label">CodexBar</string>
     <string name="widget_description">AIサービスの使用枠をひと目で確認</string>
@@ -38,7 +40,7 @@
     <string name="settings_monitoring_title">モニタリング</string>
     <string name="settings_monitoring_description">バックグラウンド更新、通知、時間制限付きライブセッションを設定します。</string>
     <string name="settings_preferences_title">アプリ設定</string>
-    <string name="settings_preferences_description">すべての表示面で使用するデザイン、言語、プライバシー動作を選択します。</string>
+    <string name="settings_preferences_description">すべての表示面で使用するデザイン、表示モード、言語、プライバシー動作を選択します。</string>
     <string name="theme_style_title">ビジュアルデザイン</string>
     <string name="theme_style_description">アプリ全体のスタイルをすぐに切り替えられます。現在のMaterial 3デザインも残しています。</string>
     <string name="theme_style_selected">選択中のデザイン</string>

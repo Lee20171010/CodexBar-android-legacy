@@ -64,6 +64,9 @@ class EncryptedPrefsManager @Inject constructor(
     private val _appThemeStyle = MutableStateFlow(AppThemeStyle.MATERIAL_3)
     val appThemeStyle: StateFlow<AppThemeStyle> = _appThemeStyle.asStateFlow()
 
+    private val _minimalDisplayEnabled = MutableStateFlow(false)
+    val minimalDisplayEnabled: StateFlow<Boolean> = _minimalDisplayEnabled.asStateFlow()
+
     @Volatile
     private var cacheRefreshStarted = false
 
@@ -308,6 +311,13 @@ class EncryptedPrefsManager @Inject constructor(
         updateCache(updated)
     }
 
+    suspend fun setMinimalDisplayEnabled(enabled: Boolean) {
+        val updated = dataStore.edit { prefs ->
+            prefs[KEY_MINIMAL_DISPLAY_ENABLED] = enabled
+        }
+        updateCache(updated)
+    }
+
     suspend fun setAppThemeStyle(style: AppThemeStyle) {
         val updated = dataStore.edit { prefs ->
             prefs[KEY_APP_THEME_STYLE] = style.name
@@ -385,6 +395,7 @@ class EncryptedPrefsManager @Inject constructor(
             refreshIntervalMinutes = prefs[KEY_REFRESH_INTERVAL] ?: DEFAULT_REFRESH_INTERVAL_MINUTES,
             persistentNotificationEnabled = prefs[KEY_NOTIFICATIONS_ENABLED] ?: true,
             appThemeStyle = AppThemeStyle.fromStoredValue(prefs[KEY_APP_THEME_STYLE]),
+            minimalDisplayEnabled = prefs[KEY_MINIMAL_DISPLAY_ENABLED] ?: false,
             privacySettings = PrivacySettings(
                 screenPrivacyEnabled = prefs[KEY_PRIVACY_SCREEN_ENABLED] ?: true,
                 lockScreenRedactionEnabled = prefs[KEY_PRIVACY_LOCK_SCREEN_REDACTION_ENABLED] ?: true,
@@ -397,6 +408,7 @@ class EncryptedPrefsManager @Inject constructor(
     private fun updateCachedSettings(settings: CachedSettings) {
         cachedSettings = settings
         _appThemeStyle.value = settings.appThemeStyle
+        _minimalDisplayEnabled.value = settings.minimalDisplayEnabled
     }
 
     private fun readCredential(prefs: Preferences, service: AiService): Credential? {
@@ -545,6 +557,7 @@ class EncryptedPrefsManager @Inject constructor(
         val refreshIntervalMinutes: Long = DEFAULT_REFRESH_INTERVAL_MINUTES,
         val persistentNotificationEnabled: Boolean = true,
         val appThemeStyle: AppThemeStyle = AppThemeStyle.MATERIAL_3,
+        val minimalDisplayEnabled: Boolean = false,
         val privacySettings: PrivacySettings = FAIL_CLOSED_PRIVACY_SETTINGS
     )
 
@@ -557,6 +570,7 @@ class EncryptedPrefsManager @Inject constructor(
         private val KEY_REFRESH_INTERVAL = longPreferencesKey("refresh_interval_minutes")
         private val KEY_NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         private val KEY_APP_THEME_STYLE = stringPreferencesKey("app_theme_style")
+        private val KEY_MINIMAL_DISPLAY_ENABLED = booleanPreferencesKey("minimal_display_enabled")
         private val KEY_PRIVACY_SCREEN_ENABLED = booleanPreferencesKey("privacy_screen_enabled")
         private val KEY_PRIVACY_LOCK_SCREEN_REDACTION_ENABLED =
             booleanPreferencesKey("privacy_lock_screen_redaction_enabled")

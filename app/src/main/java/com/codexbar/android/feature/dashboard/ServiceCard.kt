@@ -42,6 +42,7 @@ fun ServiceCard(
     service: ServiceQuotaPresentation,
     onClick: () -> Unit,
     selected: Boolean = false,
+    minimalDisplayEnabled: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val visualStyle = providerVisualStyle(service.service)
@@ -103,11 +104,15 @@ fun ServiceCard(
                     style = MaterialTheme.typography.bodyMedium, maxLines = 2,
                     overflow = TextOverflow.Ellipsis)
             }
-            Text(service.freshness.staleReason ?: service.freshness.ageLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = if (service.needsAttention()) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val freshnessLabel = service.freshness.staleReason
+                ?: service.freshness.ageLabel.takeIf { !minimalDisplayEnabled }
+            if (freshnessLabel != null) {
+                Text(freshnessLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (service.needsAttention()) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }

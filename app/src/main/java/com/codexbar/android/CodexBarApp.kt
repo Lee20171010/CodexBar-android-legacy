@@ -88,6 +88,7 @@ fun CodexBarApp(
     initialDashboardService: AiService? = null,
     onDashboardServiceConsumed: () -> Unit = {},
     dashboardPreviewSnapshot: QuotaPresentationSnapshot? = null,
+    minimalDisplayEnabled: Boolean = false,
     onScreenPrivacyChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -190,6 +191,7 @@ fun CodexBarApp(
                     onScreenPrivacyChanged = onScreenPrivacyChanged,
                     settingsViewModel = settingsViewModel,
                     dashboardPreviewSnapshot = dashboardPreviewSnapshot,
+                    minimalDisplayEnabled = minimalDisplayEnabled,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -228,6 +230,7 @@ fun CodexBarApp(
                     onScreenPrivacyChanged = onScreenPrivacyChanged,
                     settingsViewModel = settingsViewModel,
                     dashboardPreviewSnapshot = dashboardPreviewSnapshot,
+                    minimalDisplayEnabled = minimalDisplayEnabled,
                     modifier = Modifier.padding(paddingValues)
                 )
             }
@@ -247,6 +250,7 @@ private fun AppNavHost(
     onScreenPrivacyChanged: (Boolean) -> Unit,
     settingsViewModel: SettingsViewModel,
     dashboardPreviewSnapshot: QuotaPresentationSnapshot?,
+    minimalDisplayEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -262,11 +266,13 @@ private fun AppNavHost(
                 DashboardScreen(
                     onNavigateToConnections = navigateToConnections,
                     initialSelectedService = initialDashboardService,
-                    onInitialSelectionConsumed = onDashboardServiceConsumed
+                    onInitialSelectionConsumed = onDashboardServiceConsumed,
+                    minimalDisplayEnabled = minimalDisplayEnabled
                 )
             } else {
                 DashboardPreviewScreen(
                     snapshot = dashboardPreviewSnapshot,
+                    minimalDisplayEnabled = minimalDisplayEnabled,
                     onNavigateToConnections = navigateToConnections
                 )
             }

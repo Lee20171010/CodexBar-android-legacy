@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="minimal_display_title">Minimal display</string>
+    <string name="minimal_display_description">Hide the card age on dashboard cards. Quota bars, reset times, status, and error reasons stay visible. Tap a card for full details.</string>
     <string name="app_name">CodexBar</string>
     <string name="tile_label">CodexBar</string>
     <string name="widget_description">Monitor AI service quota usage at a glance</string>
@@ -38,7 +40,7 @@
     <string name="settings_monitoring_title">Monitoring</string>
     <string name="settings_monitoring_description">Control background refresh, alerts, and time-limited live sessions.</string>
     <string name="settings_preferences_title">App preferences</string>
-    <string name="settings_preferences_description">Choose the visual design, language, and privacy behavior for every surface.</string>
+    <string name="settings_preferences_description">Choose the visual design, display mode, language, and privacy behavior for every surface.</string>
     <string name="theme_style_title">Visual design</string>
     <string name="theme_style_description">Switch the complete app style instantly. The current Material 3 design remains available.</string>
     <string name="theme_style_selected">Selected design</string>

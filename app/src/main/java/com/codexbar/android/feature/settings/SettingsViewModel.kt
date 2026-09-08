@@ -88,6 +88,7 @@ class SettingsViewModel @Inject constructor(
                     monitoringDurationMinutes = monitoringSessionStore.preferredDurationMinutes(),
                     monitoringRemainingMinutes = monitoringSession?.remainingMinutes(),
                     appThemeStyle = prefsManager.appThemeStyle.value,
+                    minimalDisplayEnabled = prefsManager.minimalDisplayEnabled.value,
                     privacySettings = prefsManager.getPrivacySettings()
                 )
             }
@@ -432,6 +433,13 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setMinimalDisplayEnabled(enabled: Boolean) {
+        _uiState.update { it.copy(minimalDisplayEnabled = enabled) }
+        viewModelScope.launch {
+            prefsManager.setMinimalDisplayEnabled(enabled)
+        }
+    }
+
     fun setAppThemeStyle(style: AppThemeStyle) {
         _uiState.update { it.copy(appThemeStyle = style) }
         viewModelScope.launch {
@@ -488,6 +496,7 @@ class SettingsViewModel @Inject constructor(
                 monitoringDurationMinutes = it.monitoringDurationMinutes,
                 monitoringRemainingMinutes = it.monitoringRemainingMinutes,
                 appThemeStyle = it.appThemeStyle,
+                minimalDisplayEnabled = it.minimalDisplayEnabled,
                 privacySettings = it.privacySettings
             )
         }
