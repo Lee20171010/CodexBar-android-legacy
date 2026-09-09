@@ -59,7 +59,8 @@ class SecurePreferencesImplementationTest {
         val transaction = relocation.substringAfter("dataStore.edit { prefs ->")
             .substringBefore("updateCache(updated)")
 
-        assertTrue(transaction.contains("if (readCredential(prefs, AiService.CLAUDE) == expected)"))
+        assertTrue(transaction.contains("val prefix = connection?.id ?: AiService.CLAUDE.name"))
+        assertTrue(transaction.contains("if (readCredential(prefs, AiService.CLAUDE, prefix) == expected)"))
         assertTrue(transaction.contains("prefs.putEncryptedString"))
         assertFalse(relocation.contains("loadCredential("))
         assertFalse(relocation.contains("saveCredential("))

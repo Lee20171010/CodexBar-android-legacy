@@ -2,6 +2,7 @@ package com.codexbar.android.core.security
 
 import android.content.Context
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.domain.model.AppError
 import com.codexbar.android.core.domain.model.Result
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -25,31 +26,42 @@ class ConnectionHealthStore @Inject constructor(
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val lock = Any()
     private val _health = MutableStateFlow(loadAll())
-    val health: StateFlow<Map<AiService, ConnectionHealth>> = _health.asStateFlow()
+    val health: StateFlow<Map<String, ConnectionHealth>> = _health.asStateFlow()
 
     fun current(service: AiService): ConnectionHealth {
-        return _health.value[service] ?: ConnectionHealth.UNKNOWN
+        return current(AccountConnection.legacy(service))
     }
 
+    fun current(connection: AccountConnection): ConnectionHealth =
+        _health.value[connection.id] ?: ConnectionHealth.UNKNOWN
+
     fun record(service: AiService, result: Result<*, AppError>) {
+        record(AccountConnection.legacy(service), result)
+    }
+
+    fun record(connection: AccountConnection, result: Result<*, AppError>) {
         when (result) {
-            is Result.Success -> update(service, ConnectionHealth.CONNECTED)
-            is Result.Failure -> update(service, result.error.toConnectionHealth())
+            is Result.Success -> update(connection, ConnectionHealth.CONNECTED)
+            is Result.Failure -> update(connection, result.error.toConnectionHealth())
         }
     }
 
     fun update(service: AiService, value: ConnectionHealth) {
+        update(AccountConnection.legacy(service), value)
+    }
+
+    fun update(connection: AccountConnection, value: ConnectionHealth) {
         synchronized(lock) {
             val updated = if (value == ConnectionHealth.UNKNOWN) {
-                _health.value - service
+                _health.value - connection.id
             } else {
-                _health.value + (service to value)
+                _health.value + (connection.id to value)
             }
             prefs.edit().apply {
                 if (value == ConnectionHealth.UNKNOWN) {
-                    remove(service.name)
+                    remove(connection.id)
                 } else {
-                    putString(service.name, value.name)
+                    putString(connection.id, value.name)
                 }
             }.apply()
             _health.value = updated
@@ -60,6 +72,10 @@ class ConnectionHealthStore @Inject constructor(
         update(service, ConnectionHealth.UNKNOWN)
     }
 
+    fun clear(connection: AccountConnection) {
+        update(connection, ConnectionHealth.UNKNOWN)
+    }
+
     fun clearAll() {
         synchronized(lock) {
             prefs.edit().clear().apply()
@@ -67,13 +83,13 @@ class ConnectionHealthStore @Inject constructor(
         }
     }
 
-    private fun loadAll(): Map<AiService, ConnectionHealth> {
-        return AiService.entries.mapNotNull { service ->
-            val value = prefs.getString(service.name, null)
+    private fun loadAll(): Map<String, ConnectionHealth> {
+        return prefs.all.keys.mapNotNull { id ->
+            val value = prefs.getString(id, null)
                 ?.let { runCatching { ConnectionHealth.valueOf(it) }.getOrNull() }
                 ?.takeUnless { it == ConnectionHealth.UNKNOWN }
                 ?: return@mapNotNull null
-            service to value
+            id to value
         }.toMap()
     }
 

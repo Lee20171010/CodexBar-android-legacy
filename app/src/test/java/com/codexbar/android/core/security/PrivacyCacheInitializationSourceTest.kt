@@ -28,7 +28,7 @@ class PrivacyCacheInitializationSourceTest {
         assertInOrder(
             worker,
             "prefsManager.warmCache()",
-            "val repos = repositoryRegistry.entries()"
+            "val connections = prefsManager.loadConnections()"
         )
         assertInOrder(worker, "prefsManager.warmCache()", "prefsManager.getPrivacySettings()")
     }

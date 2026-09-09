@@ -1,11 +1,15 @@
 package com.codexbar.android.feature.settings
 
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.domain.model.AppThemeStyle
 import com.codexbar.android.core.security.PrivacySettings
 import com.codexbar.android.core.security.ConnectionHealth
 
 data class SettingsUiState(
+    val connections: List<AccountConnection> = emptyList(),
+    val connectionHealth: Map<String, ConnectionHealth> = emptyMap(),
+    val disconnectConfirmConnection: AccountConnection? = null,
     val serviceStates: Map<AiService, ServiceCredentialState> = AiService.entries.associateWith {
         ServiceCredentialState()
     },
@@ -18,10 +22,12 @@ data class SettingsUiState(
     val minimalDisplayEnabled: Boolean = false,
     val privacySettings: PrivacySettings = PrivacySettings(),
     val showDeleteConfirmDialog: Boolean = false,
-    val disconnectConfirmService: AiService? = null
 )
 
 data class ServiceCredentialState(
+    val isLoading: Boolean = false,
+    val connection: AccountConnection? = null,
+    val connectionName: String = "",
     val accessToken: String = "",
     val refreshToken: String = "",
     val accountId: String = "", // Codex only

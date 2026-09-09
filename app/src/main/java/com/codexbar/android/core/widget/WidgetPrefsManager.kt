@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.core.content.ContextCompat
 import com.codexbar.android.R
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.presentation.QuotaMetricPresentation
 import com.codexbar.android.core.presentation.ServiceQuotaPresentation
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -12,7 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 data class WidgetDisplayConfig(
-    val services: List<AiService> = emptyList(),
+    val connectionIds: List<String> = emptyList(),
     val showReset: Boolean = true,
     val showPace: Boolean = true,
     val showFreshness: Boolean = true,
@@ -38,8 +39,8 @@ class WidgetPrefsManager @Inject constructor(
         val prefix = "widget_${appWidgetId}"
         val style = config.style.normalized()
         prefs.edit()
-            .putString("${prefix}_services_order", config.services.joinToString(",") { it.name })
-            .putStringSet("${prefix}_services", config.services.map { it.name }.toSet())
+            .putString("${prefix}_services_order", config.connectionIds.distinct().joinToString(","))
+            .putStringSet("${prefix}_services", config.connectionIds.toSet())
             .putBoolean("${prefix}_show_reset", config.showReset)
             .putBoolean("${prefix}_show_pace", config.showPace)
             .putBoolean("${prefix}_show_freshness", config.showFreshness)
@@ -59,15 +60,13 @@ class WidgetPrefsManager @Inject constructor(
         val prefix = "widget_${appWidgetId}"
         val orderedServices = prefs.getString("${prefix}_services_order", null)
             ?.split(",")
-            ?.mapNotNull { name -> name.toAiServiceOrNull() }
-            ?.takeIf { it.isNotEmpty() }
+            ?.filter { it.isNotBlank() }
             ?: prefs.getStringSet("${prefix}_services", null)
-                ?.mapNotNull { name -> name.toAiServiceOrNull() }
-                ?.sortedBy { it.ordinal }
+                ?.sortedBy { name -> AiService.entries.indexOfFirst { it.name == name } }
             ?: emptyList()
 
         return WidgetDisplayConfig(
-            services = orderedServices,
+            connectionIds = orderedServices.distinct(),
             showReset = prefs.getBoolean("${prefix}_show_reset", true),
             showPace = prefs.getBoolean("${prefix}_show_pace", true),
             showFreshness = prefs.getBoolean("${prefix}_show_freshness", true),
@@ -116,7 +115,11 @@ class WidgetPrefsManager @Inject constructor(
     }
 
     fun deleteServiceCache(service: AiService) {
-        val prefix = "cache_${service.name}"
+        deleteConnectionCache(AccountConnection.legacy(service))
+    }
+
+    fun deleteConnectionCache(connection: AccountConnection) {
+        val prefix = "cache_${connection.id}_"
         val editor = prefs.edit()
         prefs.all.keys.filter { it.startsWith(prefix) }.forEach { editor.remove(it) }
         editor.apply()
@@ -130,10 +133,47 @@ class WidgetPrefsManager @Inject constructor(
 
     // --- Cached quota data for widgets ---
 
-    fun cachePresentation(service: ServiceQuotaPresentation) {
-        val prefix = "cache_${service.service.name}"
+    fun cacheQuotaData(service: AiService, label: String, utilization: Double, resetsAtEpochSecond: Long?) {
+        val prefix = "cache_${service.name}"
+        prefs.edit()
+            .putString("${prefix}_labels", getCachedLabels(service.name).plus(label).joinToString(","))
+            .putFloat("${prefix}_${label}_util", utilization.toFloat())
+            .apply {
+                if (resetsAtEpochSecond != null) {
+                    putLong("${prefix}_${label}_resets", resetsAtEpochSecond)
+                } else {
+                    remove("${prefix}_${label}_resets")
+                }
+            }
+            .apply()
+    }
+
+    fun cacheAllQuotaData(service: AiService, windows: List<Triple<String, Double, Long?>>) {
+        cacheAllQuotaData(service.name, windows)
+    }
+
+    fun cacheAllQuotaData(connectionId: String, windows: List<Triple<String, Double, Long?>>) {
+        val prefix = "cache_${connectionId}"
         val editor = prefs.edit()
-        prefs.all.keys.filter { it.startsWith(prefix) }.forEach { editor.remove(it) }
+        // Clear old cache for this service
+        prefs.all.keys.filter { it.startsWith("${prefix}_") }.forEach { editor.remove(it) }
+
+        val labels = windows.map { it.first }
+        editor.putString("${prefix}_labels", labels.joinToString(","))
+        for ((label, utilization, resetsAt) in windows) {
+            editor.putFloat("${prefix}_${label}_util", utilization.toFloat())
+            if (resetsAt != null) {
+                editor.putLong("${prefix}_${label}_resets", resetsAt)
+            }
+        }
+        editor.putLong("${prefix}_updated_at", System.currentTimeMillis())
+        editor.apply()
+    }
+
+    fun cachePresentation(service: ServiceQuotaPresentation) {
+        val prefix = "cache_${service.connection.id}"
+        val editor = prefs.edit()
+        prefs.all.keys.filter { it.startsWith("${prefix}_") }.forEach { editor.remove(it) }
 
         val labels = service.metrics.map { it.label }
         editor.putString("${prefix}_labels", labels.joinToString(","))
@@ -175,82 +215,104 @@ class WidgetPrefsManager @Inject constructor(
         metric.resetsAt?.let { putLong("${prefix}_${label}_resets", it.epochSecond) }
     }
 
-    fun getCachedLabels(service: AiService): List<String> {
-        val raw = prefs.getString("cache_${service.name}_labels", null) ?: return emptyList()
+    fun getCachedLabels(connectionId: String): List<String> {
+        val raw = prefs.getString("cache_${connectionId}_labels", null) ?: return emptyList()
         return raw.split(",").filter { it.isNotEmpty() }
     }
 
-    fun getCachedUtilization(service: AiService, label: String): Float {
-        return prefs.getFloat("cache_${service.name}_${label}_util", 0f)
+    fun getCachedUtilization(connectionId: String, label: String): Float {
+        return prefs.getFloat("cache_${connectionId}_${label}_util", 0f)
     }
 
-    fun getCachedRemainingFraction(service: AiService, label: String): Float? {
-        val prefix = "cache_${service.name}_${label}"
+    fun getCachedRemainingFraction(connectionId: String, label: String): Float? {
+        val prefix = "cache_${connectionId}_${label}"
         if (prefs.contains("${prefix}_bounded")) {
             return if (prefs.getBoolean("${prefix}_bounded", false))
                 prefs.getFloat("${prefix}_remaining", Float.NaN).takeIf { it.isFinite() } else null
         }
         // Migrate old caches only when they explicitly described a bounded quota.
-        if (getCachedSeverity(service, label) in listOf(null, "Unknown", "Redacted")) return null
-        return (1f - getCachedUtilization(service, label)).coerceIn(0f, 1f)
+        if (getCachedSeverity(connectionId, label) in listOf(null, "Unknown", "Redacted")) return null
+        return (1f - getCachedUtilization(connectionId, label)).coerceIn(0f, 1f)
     }
 
-    fun getCachedResetAt(service: AiService, label: String): Long? =
-        prefs.getLong("cache_${service.name}_${label}_resets", 0L).takeIf { it > 0L }
+    fun getCachedStatus(connectionId: String): String? = prefs.getString("cache_${connectionId}_status", null)
 
-    fun getCachedStatus(service: AiService): String? = prefs.getString("cache_${service.name}_status", null)
-
-    fun getCachedBarProgress(service: AiService, label: String): Float {
-        return prefs.getFloat("cache_${service.name}_${label}_bar", (1f - getCachedUtilization(service, label)).coerceIn(0f, 1f))
+    fun getCachedBarProgress(connectionId: String, label: String): Float {
+        return prefs.getFloat("cache_${connectionId}_${label}_bar", (1f - getCachedUtilization(connectionId, label)).coerceIn(0f, 1f))
     }
 
-    fun getCachedRemainingLabel(service: AiService, label: String): String {
-        return prefs.getString("cache_${service.name}_${label}_remaining_label", null)
+    fun getCachedRemainingLabel(connectionId: String, label: String): String {
+        return prefs.getString("cache_${connectionId}_${label}_remaining_label", null)
             ?: ContextCompat.getContextForLanguage(context).getString(
                 R.string.quota_remaining_percent,
-                ((1f - getCachedUtilization(service, label)) * 100).toInt().coerceIn(0, 100)
+                ((1f - getCachedUtilization(connectionId, label)) * 100).toInt().coerceIn(0, 100)
             )
     }
 
-    fun getCachedResetLabel(service: AiService, label: String): String? {
-        return prefs.getString("cache_${service.name}_${label}_reset_label", null)
+    fun getCachedResetLabel(connectionId: String, label: String): String? {
+        return prefs.getString("cache_${connectionId}_${label}_reset_label", null)
     }
 
-    fun getCachedPaceLabel(service: AiService, label: String): String? {
-        return prefs.getString("cache_${service.name}_${label}_pace_label", null)
+    fun getCachedPaceLabel(connectionId: String, label: String): String? {
+        return prefs.getString("cache_${connectionId}_${label}_pace_label", null)
     }
 
-    fun getCachedResetPlanLabel(service: AiService, label: String): String? {
-        return prefs.getString("cache_${service.name}_${label}_reset_plan_label", null)
+    fun getCachedResetPlanLabel(connectionId: String, label: String): String? {
+        return prefs.getString("cache_${connectionId}_${label}_reset_plan_label", null)
     }
 
-    fun getCachedSeverity(service: AiService, label: String): String? {
-        return prefs.getString("cache_${service.name}_${label}_severity", null)
+    fun getCachedSeverity(connectionId: String, label: String): String? {
+        return prefs.getString("cache_${connectionId}_${label}_severity", null)
     }
 
-    fun getCachedFreshness(service: AiService): String? {
-        return prefs.getString("cache_${service.name}_freshness", null)
+    fun getCachedFreshness(connectionId: String): String? {
+        return prefs.getString("cache_${connectionId}_freshness", null)
     }
 
-    fun getCachedStatusMessage(service: AiService): String? {
-        return prefs.getString("cache_${service.name}_status_message", null)
+    fun getCachedStatusMessage(connectionId: String): String? {
+        return prefs.getString("cache_${connectionId}_status_message", null)
     }
 
     fun cacheStatusMessageIfEmpty(service: AiService, message: String) {
-        if (getCachedLabels(service).isNotEmpty()) return
-        val prefix = "cache_${service.name}"
+        cacheStatusMessageIfEmpty(AccountConnection.legacy(service), message)
+    }
+
+    fun cacheStatusMessageIfEmpty(connection: AccountConnection, message: String) {
+        val prefix = "cache_${connection.id}"
+        if (!prefs.getString("${prefix}_labels", null).isNullOrEmpty()) return
         prefs.edit()
             .putString("${prefix}_status_message", message)
             .putLong("${prefix}_updated_at", System.currentTimeMillis())
             .apply()
     }
 
-    fun getCachedUpdatedAt(service: AiService): Long {
-        return prefs.getLong("cache_${service.name}_updated_at", 0L)
+    fun getCachedResetsAt(connectionId: String, label: String): Long? {
+        val value = prefs.getLong("cache_${connectionId}_${label}_resets", -1L)
+        return if (value > 0) value else null
     }
 
-    fun getCachedTier(service: AiService): String? {
-        return prefs.getString("cache_${service.name}_tier", null)
+    fun getCachedUpdatedAt(connectionId: String): Long {
+        return prefs.getLong("cache_${connectionId}_updated_at", 0L)
+    }
+
+    /** Returns the highest utilization across all cached windows for this service. */
+    fun getMaxCachedUtilization(connectionId: String): Float {
+        val labels = getCachedLabels(connectionId)
+        if (labels.isEmpty()) return 0f
+        return labels.maxOf { getCachedUtilization(connectionId, it) }
+    }
+
+    fun cacheTier(service: AiService, tier: String?) {
+        val key = "cache_${service.name}_tier"
+        if (tier != null) {
+            prefs.edit().putString(key, tier).apply()
+        } else {
+            prefs.edit().remove(key).apply()
+        }
+    }
+
+    fun getCachedTier(connectionId: String): String? {
+        return prefs.getString("cache_${connectionId}_tier", null)
     }
 
     private fun String.toAiServiceOrNull(): AiService? {

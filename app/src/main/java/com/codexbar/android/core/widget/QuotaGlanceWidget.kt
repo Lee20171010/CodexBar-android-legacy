@@ -34,6 +34,7 @@ import androidx.glance.unit.ColorProvider
 import androidx.core.content.ContextCompat
 import com.codexbar.android.MainActivity
 import com.codexbar.android.R
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.presentation.QuotaSeverity
 import com.codexbar.android.core.security.EncryptedPrefsManager
 import com.codexbar.android.core.workmanager.WorkManagerInitializer
@@ -79,11 +80,13 @@ class QuotaGlanceWidget(private val previewConfig: WidgetDisplayConfig? = null) 
         val redactQuotaDetails = dependencies.readWidgetRedaction()
         val strings = runCatching { WidgetStrings(ContextCompat.getContextForLanguage(context)) }
             .getOrElse { WidgetStrings(context) }
+        val connections = dependencies.readConnections().associateBy { it.id }
 
         provideContent {
             GlanceTheme {
                 WidgetContent(
                     config = config,
+                    selectedConnections = config.connectionIds.mapNotNull(connections::get),
                     widgetPrefs = dependencies.widgetPrefs,
                     redactQuotaDetails = redactQuotaDetails,
                     strings = strings
@@ -95,6 +98,7 @@ class QuotaGlanceWidget(private val previewConfig: WidgetDisplayConfig? = null) 
     @Composable
     private fun WidgetContent(
         config: WidgetDisplayConfig,
+        selectedConnections: List<AccountConnection>,
         widgetPrefs: WidgetPrefsManager,
         redactQuotaDetails: Boolean,
         strings: WidgetStrings
@@ -108,9 +112,9 @@ class QuotaGlanceWidget(private val previewConfig: WidgetDisplayConfig? = null) 
         ) {
             when {
                 redactQuotaDetails -> RedactedState(strings, style)
-                config.services.isEmpty() -> EmptyState(strings, style)
+                config.connectionIds.isEmpty() -> EmptyState(strings, style)
                 else -> WidgetTemplates(config.copy(style = style),
-                    widgetPrefs.displayData(config, strings.waitingForData))
+                    widgetPrefs.displayData(config, selectedConnections, strings.waitingForData))
             }
         }
     }
@@ -199,6 +203,10 @@ internal class WidgetDependencies private constructor(
         return runCatching { prefsManager.getPrivacySettings().widgetRedactionEnabled }
             .getOrDefault(true)
     }
+
+    suspend fun readConnections(): List<AccountConnection> = runCatching {
+        withTimeoutOrNull(SETTINGS_TIMEOUT_MILLIS) { encryptedPrefs?.loadConnections() }
+    }.getOrNull().orEmpty()
 
     companion object {
         private const val TAG = "CodexBarWidget"

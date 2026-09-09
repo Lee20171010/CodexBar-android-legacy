@@ -2,6 +2,7 @@ package com.codexbar.android.core.security
 
 import android.content.Context
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.domain.model.Credential
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.nio.charset.StandardCharsets
@@ -16,10 +17,14 @@ class TokenRefreshStateStore @Inject constructor(
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun load(service: AiService): TokenRefreshRetryState? {
-        val fingerprint = prefs.getString("${service.name}_fingerprint", null) ?: return null
-        val nextAttemptAtMillis = prefs.getLong("${service.name}_next_attempt_at_ms", 0L)
-        val failureCount = prefs.getInt("${service.name}_failure_count", 0)
-        val terminal = prefs.getBoolean("${service.name}_terminal", false)
+        return load(AccountConnection.legacy(service))
+    }
+
+    fun load(connection: AccountConnection): TokenRefreshRetryState? {
+        val fingerprint = prefs.getString("${connection.id}_fingerprint", null) ?: return null
+        val nextAttemptAtMillis = prefs.getLong("${connection.id}_next_attempt_at_ms", 0L)
+        val failureCount = prefs.getInt("${connection.id}_failure_count", 0)
+        val terminal = prefs.getBoolean("${connection.id}_terminal", false)
         return TokenRefreshRetryState(
             credentialFingerprint = fingerprint,
             nextAttemptAtMillis = nextAttemptAtMillis,
@@ -29,20 +34,28 @@ class TokenRefreshStateStore @Inject constructor(
     }
 
     fun save(service: AiService, state: TokenRefreshRetryState) {
+        save(AccountConnection.legacy(service), state)
+    }
+
+    fun save(connection: AccountConnection, state: TokenRefreshRetryState) {
         prefs.edit()
-            .putString("${service.name}_fingerprint", state.credentialFingerprint)
-            .putLong("${service.name}_next_attempt_at_ms", state.nextAttemptAtMillis)
-            .putInt("${service.name}_failure_count", state.failureCount)
-            .putBoolean("${service.name}_terminal", state.terminal)
+            .putString("${connection.id}_fingerprint", state.credentialFingerprint)
+            .putLong("${connection.id}_next_attempt_at_ms", state.nextAttemptAtMillis)
+            .putInt("${connection.id}_failure_count", state.failureCount)
+            .putBoolean("${connection.id}_terminal", state.terminal)
             .apply()
     }
 
     fun reset(service: AiService) {
+        reset(AccountConnection.legacy(service))
+    }
+
+    fun reset(connection: AccountConnection) {
         prefs.edit()
-            .remove("${service.name}_fingerprint")
-            .remove("${service.name}_next_attempt_at_ms")
-            .remove("${service.name}_failure_count")
-            .remove("${service.name}_terminal")
+            .remove("${connection.id}_fingerprint")
+            .remove("${connection.id}_next_attempt_at_ms")
+            .remove("${connection.id}_failure_count")
+            .remove("${connection.id}_terminal")
             .apply()
     }
 

@@ -9,7 +9,7 @@ class ConnectionHealthPresentationSourceTest {
         .first { File(it, "src/main/AndroidManifest.xml").isFile }
 
     @Test
-    fun `dashboard and background refresh publish provider health`() {
+    fun `dashboard and background refresh publish connection health`() {
         val dashboard = source(
             "src/main/java/com/codexbar/android/feature/dashboard/DashboardViewModel.kt"
         )
@@ -17,8 +17,8 @@ class ConnectionHealthPresentationSourceTest {
             "src/main/java/com/codexbar/android/core/workmanager/QuotaRefreshWorker.kt"
         )
 
-        assertTrue(dashboard.contains("connectionHealthStore.record(service, result)"))
-        assertTrue(worker.contains("connectionHealthStore.record(service, result)"))
+        assertTrue(dashboard.contains("connectionHealthStore.record(connection, result)"))
+        assertTrue(worker.contains("connectionHealthStore.record(connection, result)"))
     }
 
     @Test

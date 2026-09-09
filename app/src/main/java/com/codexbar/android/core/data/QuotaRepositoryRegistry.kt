@@ -1,6 +1,10 @@
 package com.codexbar.android.core.data
 
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
+import com.codexbar.android.core.domain.model.AppError
+import com.codexbar.android.core.domain.model.QuotaInfo
+import com.codexbar.android.core.domain.model.Result
 import com.codexbar.android.core.domain.repository.QuotaRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,4 +29,10 @@ class QuotaRepositoryRegistry @Inject constructor(
     fun entries(): List<Pair<AiService, QuotaRepository>> = AiService.entries.map { service ->
         service to repositoryFor(service)
     }
+
+    suspend fun fetchQuota(connection: AccountConnection): Result<QuotaInfo, AppError> =
+        when (val result = repositoryFor(connection.service).fetchQuota(connection)) {
+            is Result.Success -> Result.Success(result.value.copy(connection = connection))
+            is Result.Failure -> result
+        }
 }

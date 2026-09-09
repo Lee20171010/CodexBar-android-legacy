@@ -17,6 +17,7 @@ Monitor AI service quotas from your Android device. Track Claude, Codex (ChatGPT
 v0.9.4 adds Antigravity desktop model quotas, distinct compact model labels, and Windows tray companions that start at sign-in and recover after failures. Claude also recovers stalled quota sessions automatically. See the [release notes](docs/releases/v0.9.4.md).
 
 - Unified quota monitoring for 21 providers: Claude, Codex, GitHub Copilot, Gemini, Cursor, z.ai, ZenMux, Kimi Code, ElevenLabs, OpenRouter, Synthetic, Chutes, DeepSeek, Venice, Moonshot API, Cline, IBM Bob, Fireworks AI, Devin, OpenCode Go, and Antigravity
+- Multiple named account connections per provider, displayed separately on the dashboard and selectable individually in widgets
 - Four complete selectable design systems: the existing Material 3 UI, Liquid Glass, WinUI 3, and Aurora, each with light/dark support
 - A compact Usage overview with official provider icons, a saved custom provider order, two quota windows per provider, symmetric cards, and details on tap
 - Provider cards with animated rings, bars, exact values, reset countdowns, pace forecasts, and retained history charts
@@ -117,6 +118,12 @@ For local development:
 4. Open the app and go to **Connections** to link providers or enter fallback credentials
 
 ## Connecting Accounts
+
+Expand a provider in **Connections** to select a saved account or choose **Add another account**. Enter an account name and complete the provider's existing validation or sign-in flow to save a new connection. Select a saved account to rename it, reconnect it without changing its identity, or disconnect only that account.
+
+Each connection has separate credentials, quota history, refresh health/retry state, and widget cache. Full and minimal dashboard cards use the saved account name. Existing provider connections, history, and widget selections are adopted in place on upgrade without rewriting credential ciphertext; new connections use independent IDs. Disconnecting an account removes its local data, not sibling accounts. A widget targeting a deleted account does not silently switch to another account.
+
+The optional Codex telemetry pairing has **one saved Codex connection as its owner**. Select that account before pairing; pairing from another account transfers ownership rather than duplicating telemetry. Deleting the owner removes the pairing; deleting another account leaves it intact.
 
 ### Device-code sign-in: exact flow
 

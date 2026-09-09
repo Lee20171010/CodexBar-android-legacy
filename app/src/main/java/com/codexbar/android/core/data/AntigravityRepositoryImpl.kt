@@ -1,5 +1,6 @@
 package com.codexbar.android.core.data
 
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.domain.model.AiService
 import com.codexbar.android.core.domain.model.AppError
 import com.codexbar.android.core.domain.model.Credential
@@ -13,6 +14,7 @@ import com.codexbar.android.core.network.antigravity.AntigravityCompanionProtoco
 import com.codexbar.android.core.network.antigravity.AntigravityCompanionSnapshot
 import com.codexbar.android.core.network.companion.LocalCompanionLocator
 import com.codexbar.android.core.security.EncryptedPrefsManager
+import com.codexbar.android.core.security.loadCredential
 import java.io.IOException
 import java.time.Instant
 import javax.inject.Inject
@@ -28,8 +30,8 @@ class AntigravityRepositoryImpl @Inject constructor(
     @Volatile
     private var nextRelocationAtMillis = 0L
 
-    override suspend fun fetchQuota(): Result<QuotaInfo, AppError> {
-        val credential = prefsManager.loadCredential(AiService.ANTIGRAVITY)
+    override suspend fun fetchQuota(connection: AccountConnection?): Result<QuotaInfo, AppError> {
+        val credential = prefsManager.loadCredential(AiService.ANTIGRAVITY, connection)
             as? Credential.AntigravityCompanionCredential
             ?: return Result.Failure(AppError.CredentialNotFound(AiService.ANTIGRAVITY))
         val direct = fetchCompanionQuota(credential)

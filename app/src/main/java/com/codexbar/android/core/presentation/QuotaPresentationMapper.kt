@@ -1,6 +1,7 @@
 package com.codexbar.android.core.presentation
 
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.domain.model.AppError
 import com.codexbar.android.core.domain.model.CodexTelemetry
 import com.codexbar.android.core.domain.model.CodexTokenTotals
@@ -28,12 +29,14 @@ class QuotaPresentationMapper(
         privacy: PrivacyPresentation = PrivacyPresentation(),
         source: RefreshSourcePresentation = RefreshSourcePresentation.Unknown,
         paceByMetricKey: Map<String, PacePresentation> = emptyMap(),
-        historyByMetricKey: Map<String, List<QuotaHistorySample>> = emptyMap()
+        historyByMetricKey: Map<String, List<QuotaHistorySample>> = emptyMap(),
+        connectionErrors: Map<AccountConnection, AppError> = emptyMap()
     ): QuotaPresentationSnapshot {
         val successfulServices = quotas.map { quota ->
             val metrics = quota.windows.mapIndexed { index, window ->
                 mapWindow(
                     service = quota.service,
+                    connection = quota.connection,
                     window = window,
                     index = index,
                     generatedAt = generatedAt,
@@ -49,7 +52,8 @@ class QuotaPresentationMapper(
             )
             ServiceQuotaPresentation(
                 service = quota.service,
-                accountLabel = null,
+                accountLabel = quota.connection.name.takeUnless { privacy.redactSensitiveValues },
+                connection = quota.connection,
                 tier = if (privacy.redactSensitiveValues) null else quota.tier,
                 status = if (privacy.redactSensitiveValues) ServiceQuotaStatus.Redacted else ServiceQuotaStatus.Fresh,
                 primaryMetric = primary,
@@ -86,10 +90,13 @@ class QuotaPresentationMapper(
             )
         }
 
-        val failedServices = errors
-            .filterKeys { service -> successfulServices.none { it.service == service } }
-            .map { (service, error) ->
-                mapError(service, error, generatedAt)
+        val failedServices = (errors.mapKeys { AccountConnection.legacy(it.key) } + connectionErrors)
+            .filterKeys { connection -> successfulServices.none { it.connection.id == connection.id } }
+            .map { (connection, error) ->
+                mapError(connection.service, error, generatedAt).copy(
+                    connection = connection,
+                    accountLabel = connection.name.takeUnless { privacy.redactSensitiveValues }
+                )
             }
 
         val services = (successfulServices + failedServices)
@@ -109,6 +116,7 @@ class QuotaPresentationMapper(
 
     private fun mapWindow(
         service: AiService,
+        connection: AccountConnection,
         window: UsageWindow,
         index: Int,
         generatedAt: Instant,
@@ -129,7 +137,7 @@ class QuotaPresentationMapper(
             else -> QuotaSeverity.Good
         }
         val label = window.label.ifBlank { text.window(index + 1) }
-        val pace = paceByMetricKey[metricKey(service, label)] ?: PacePresentation(
+        val pace = paceByMetricKey[metricKey(connection, label)] ?: PacePresentation(
             state = PaceState.CollectingHistory,
             label = text.collectingPaceHistory()
         )
@@ -141,7 +149,7 @@ class QuotaPresentationMapper(
         val history = if (privacy.redactSensitiveValues) {
             QuotaHistoryPresentation()
         } else {
-            mapHistory(historyByMetricKey[metricKey(service, label)].orEmpty())
+            mapHistory(historyByMetricKey[metricKey(connection, label)].orEmpty())
         }
         return QuotaMetricPresentation(
             id = label.lowercase(locale).replace(Regex("[^a-z0-9]+"), "-").trim('-')
@@ -468,6 +476,7 @@ class QuotaPresentationMapper(
 
     companion object {
         fun metricKey(service: AiService, label: String): String = "${service.name}|$label"
+        fun metricKey(connection: AccountConnection, label: String): String = "${connection.id}|$label"
 
         private const val WARNING_USED_FRACTION = 0.60
         private const val CRITICAL_USED_FRACTION = 0.85

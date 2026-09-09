@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import com.codexbar.android.MainActivity
 import com.codexbar.android.R
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.security.EncryptedPrefsManager
 import com.codexbar.android.core.widget.WidgetPrefsManager
 import com.codexbar.android.core.workmanager.WorkManagerInitializer
@@ -18,9 +19,20 @@ import dagger.hilt.android.AndroidEntryPoint
 import java.time.Duration
 import java.time.Instant
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class QuotaTileService : TileService() {
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    override fun onDestroy() {
+        serviceScope.cancel()
+        super.onDestroy()
+    }
 
     @Inject
     lateinit var prefsManager: EncryptedPrefsManager
@@ -66,9 +78,16 @@ class QuotaTileService : TileService() {
     }
 
     private fun updateTile(subtitleOverride: String? = null) {
+        serviceScope.launch {
+            prefsManager.warmCache()
+            renderTile(prefsManager.loadConnections(), subtitleOverride)
+        }
+    }
+
+    private fun renderTile(connections: List<AccountConnection>, subtitleOverride: String?) {
         val tile = qsTile ?: return
 
-        val hasAnyCredential = AiService.entries.any { prefsManager.hasCredential(it) }
+        val hasAnyCredential = connections.isNotEmpty()
 
         if (!hasAnyCredential) {
             tile.state = Tile.STATE_INACTIVE
@@ -83,40 +102,39 @@ class QuotaTileService : TileService() {
         tile.state = Tile.STATE_ACTIVE
         tile.label = localizedString(R.string.app_name)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            tile.subtitle = subtitleOverride ?: buildSummarySubtitle()
+            tile.subtitle = subtitleOverride ?: buildSummarySubtitle(connections)
         }
         tile.updateTile()
     }
 
-    private fun buildSummarySubtitle(): String {
+    private fun buildSummarySubtitle(services: List<AccountConnection>): String {
         val privacySettings = prefsManager.getPrivacySettings()
         if (privacySettings.widgetRedactionEnabled || privacySettings.notificationRedactionEnabled) {
             return localizedString(R.string.tile_quota_hidden)
         }
 
-        val services = AiService.entries.filter { prefsManager.hasCredential(it) }
         val cachedService = services
             .mapNotNull { service ->
-                val labels = widgetPrefsManager.getCachedLabels(service)
+                val labels = widgetPrefsManager.getCachedLabels(service.id)
                 if (labels.isEmpty()) return@mapNotNull null
-                val primaryLabel = labels.maxBy { widgetPrefsManager.getCachedUtilization(service, it) }
-                val maxUtilization = widgetPrefsManager.getCachedUtilization(service, primaryLabel)
-                val updatedAt = widgetPrefsManager.getCachedUpdatedAt(service)
+                val primaryLabel = labels.maxBy { widgetPrefsManager.getCachedUtilization(service.id, it) }
+                val maxUtilization = widgetPrefsManager.getCachedUtilization(service.id, primaryLabel)
+                val updatedAt = widgetPrefsManager.getCachedUpdatedAt(service.id)
                 TileSnapshot(
                     service = service,
                     utilization = maxUtilization,
                     updatedAt = updatedAt,
-                    remainingLabel = widgetPrefsManager.getCachedRemainingLabel(service, primaryLabel)
+                    remainingLabel = widgetPrefsManager.getCachedRemainingLabel(service.id, primaryLabel)
                 )
             }
             .maxByOrNull { it.utilization }
 
         if (cachedService == null) {
-            return services.joinToString(" | ") { it.displayName }
+            return services.joinToString(" | ") { it.name }
         }
 
         val age = formatAge(cachedService.updatedAt)
-        return "${cachedService.service.displayName}: ${cachedService.remainingLabel}$age"
+        return "${cachedService.service.name}: ${cachedService.remainingLabel}$age"
     }
 
     private fun formatAge(updatedAtMillis: Long): String {
@@ -139,7 +157,7 @@ class QuotaTileService : TileService() {
     }
 
     private data class TileSnapshot(
-        val service: AiService,
+        val service: AccountConnection,
         val utilization: Float,
         val updatedAt: Long,
         val remainingLabel: String

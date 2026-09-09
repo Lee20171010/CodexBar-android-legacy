@@ -7,7 +7,7 @@ import org.junit.Test
 
 class WidgetConfigSaverTest {
     @Test fun `rotation restores an unapplied appearance and service order`() {
-        val config = WidgetDisplayConfig(services = listOf(AiService.COPILOT, AiService.CODEX),
+        val config = WidgetDisplayConfig(connectionIds = listOf(AiService.COPILOT.name, AiService.CODEX.name),
             showReset = false, showPace = false, showFreshness = false, maxRows = 2,
             style = WidgetStyle(template = WidgetTemplate.RINGS, backgroundRgb = 0xABCDEF,
                 opacity = 37, foreground = WidgetForeground.DARK, cornerRadius = 8, fontScale = .9f,

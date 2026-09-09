@@ -9,6 +9,9 @@ This repository now uses layered verification because the app spans credentials,
 | Credential logging | `NetworkModuleTest` asserts sentinel access/refresh/client-secret values are not emitted by the debug metadata logger and that token clients have no logging interceptor. |
 | Backup/data transfer | `BackupRulesTest` verifies DataStore credentials, token refresh state, monitoring session state, and widget display cache are excluded from legacy backup and Android 12+ extraction rules. |
 | Secure storage | `SecurePreferencesImplementationTest` verifies DataStore plus Android Keystore value encryption and absence of `EncryptedSharedPreferences`. |
+| Multiple stored accounts | `ConnectionCredentialsTest` exercises the real preferences manager with in-memory DataStore and a synthetic cipher: legacy adoption, independent credentials/reset times, rename/delete, credential compare-and-replace, single-owner Codex telemetry, and refresh isolation between two Codex connections through one repository. These JVM tests do not exercise Android Keystore or live providers. |
+| Connection editing/publication | `ConnectionEditingTest` covers named account creation, identity-preserving reauthentication, rename, sibling-preserving deletion and cleanup, stale validation/QR callbacks, locked selection/deletion, and suspended fallback loads. `ConnectionPublicationTest` covers cancellation-safe mutation cleanup; `TokenWorkerPublicationTest` runs the actual worker against the publication gate to prevent stale retry/health publication after deletion. |
+| Per-account presentation/storage | `QuotaPresentationMapperTest` covers same-provider success/error rows and pace isolation. `ConnectionWidgetTest` exercises real widget/history stores with an in-memory SharedPreferences boundary, including legacy data, independent connection caches/history, deletion, and widget selections. |
 | Claude local pairing | `ClaudeCompanionPairingTest` and `ClaudeCompanionClientTest` cover the non-browsable pairing format, strict private-address parsing, HMAC/AES-GCM exchange, tamper rejection, and explicit verification. Google Code Scanner returns QR data directly to the app without camera permission or a secret-bearing external intent. |
 | Claude desktop companion | Node tests cover current-session/weekly parsing, loading/stability behavior, PTY reuse, used/remaining conversion, ANSI sanitization, known-plan allowlisting, domain-separated keys, exact signed requests, and replay rejection. Linux, Windows, and macOS CI each install and spawn the native PTY; Linux also runs `npm audit` against the pinned lockfile. The release workflow extracts the generated ZIP and repeats its install, syntax, and native-PTY smoke checks from the packaged files. |
 | Gemini secret removal | `GeminiClientSecretRemovalTest` fails if main source reintroduces Gemini `client_secret` handling. |
@@ -22,6 +25,12 @@ This repository now uses layered verification because the app spans credentials,
 | Monitoring session | `MonitoringSessionTest` covers explicit start/end and remaining-duration math. |
 | Notification synchronization | `DashboardNotificationSyncSourceTest`, `LiveNotificationSourceTest`, and `LiveMonitoringSettingsSourceTest` verify same-snapshot dashboard publication, independent persistent/live toggles, and API 36 promoted-progress construction. |
 | Widget startup/recovery | `WidgetRefreshSourceTest` and `WidgetConfigurationUiSourceTest` cover immediate refresh, loading-state recovery, cache fallback, and correct canceled-configuration results. |
+
+## Multi-account verification boundary
+
+The feature's strict debug verification passes 337 JVM tests (zero failures or skips), Android lint (zero errors; 98 warnings and one hint), and debug APK assembly. Tests must run with `Test.ignoreFailures = false`; a successful Gradle exit alone is insufficient when failures are ignored.
+
+A prior wrapped API 36 runtime smoke covered Connections search, provider expansion, account-name editing, and **Add another account** draft reset using no real credentials; the original APK and app data were restored. It did not verify two persisted accounts on-device. Persisted multi-account full/minimal dashboard rendering, migration with Android Keystore, widget/tile/notification behavior, and deletion isolation still require device verification. Live provider/device-code/companion authentication was not exercised for this feature. JVM checks and basic editor smoke are not live-backend or release-ready end-to-end evidence.
 
 ## Manual release smoke checklist
 

@@ -127,7 +127,7 @@ private fun DashboardContent(
     onProviderOrderChange: (List<AiService>) -> Unit = {}
 ) {
     val themeProfile = LocalCodexBarThemeProfile.current
-    var selectedServiceName by remember { mutableStateOf<String?>(null) }
+    var selectedConnectionId by remember { mutableStateOf<String?>(null) }
     var showOnlyAttention by rememberSaveable { mutableStateOf(false) }
     var showOrder by rememberSaveable { mutableStateOf(false) }
     val services = (uiState as? DashboardUiState.Content)?.snapshot?.services.orEmpty()
@@ -153,9 +153,11 @@ private fun DashboardContent(
     }
 
     // A notification or Now Bar entry names the provider it was opened for.
-    LaunchedEffect(initialSelectedService) {
-        if (initialSelectedService != null) {
-            selectedServiceName = initialSelectedService.name
+    LaunchedEffect(initialSelectedService, uiState) {
+        val target = (uiState as? DashboardUiState.Content)?.snapshot?.services
+            ?.firstOrNull { it.service == initialSelectedService }
+        if (target != null) {
+            selectedConnectionId = target.connection.id
             onInitialSelectionConsumed()
         }
     }
@@ -163,7 +165,7 @@ private fun DashboardContent(
     val explicitlySelectedService = (uiState as? DashboardUiState.Content)
         ?.snapshot
         ?.services
-        ?.firstOrNull { it.service.name == selectedServiceName }
+        ?.firstOrNull { it.connection.id == selectedConnectionId }
 
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -215,7 +217,7 @@ private fun DashboardContent(
                         } else {
                             val failedServices = state.snapshot.services
                                 .filter { it.needsAttention() }
-                                .joinToString(", ") { it.service.displayName }
+                                .joinToString(", ") { it.accountLabel ?: it.service.displayName }
                             val errorBanner = failedServices.takeIf { it.isNotBlank() }
                                 ?.let {
                                     stringResource(R.string.dashboard_needs_attention, it)
@@ -244,11 +246,14 @@ private fun DashboardContent(
                                         attentionCount = summary.attentionCount,
                                         showOnlyAttention = filterAttention,
                                         onAttentionFilterChange = { showOnlyAttention = it },
-                                        selectedServiceName = paneService.service.name,
+                                        selectedConnectionId = paneService.connection.id,
                                         onServiceClick = {
-                                            selectedServiceName = it.service.name
+                                            selectedConnectionId = it.connection.id
                                         },
-                                        onSummaryProviderClick = { selectedServiceName = it.name },
+                                        onSummaryProviderClick = { provider ->
+                                            selectedConnectionId = state.snapshot.services
+                                                .firstOrNull { it.service == provider }?.connection?.id
+                                        },
                                         modifier = Modifier.weight(0.46f)
                                     )
                                     VerticalDivider(modifier = Modifier.fillMaxHeight())
@@ -274,11 +279,14 @@ private fun DashboardContent(
                                     attentionCount = summary.attentionCount,
                                     showOnlyAttention = filterAttention,
                                     onAttentionFilterChange = { showOnlyAttention = it },
-                                    selectedServiceName = null,
+                                    selectedConnectionId = null,
                                     onServiceClick = {
-                                        selectedServiceName = it.service.name
+                                        selectedConnectionId = it.connection.id
                                     },
-                                    onSummaryProviderClick = { selectedServiceName = it.name }
+                                    onSummaryProviderClick = { provider ->
+                                        selectedConnectionId = state.snapshot.services
+                                            .firstOrNull { it.service == provider }?.connection?.id
+                                    }
                                 )
                             }
                         }
@@ -290,10 +298,10 @@ private fun DashboardContent(
                 explicitlySelectedService?.let { service ->
                     ServiceDetailSheet(
                         service = service,
-                        onDismiss = { selectedServiceName = null },
+                        onDismiss = { selectedConnectionId = null },
                         onRefresh = onRefresh,
                         onManageConnection = {
-                            selectedServiceName = null
+                            selectedConnectionId = null
                             onNavigateToConnections()
                         }
                     )
@@ -312,7 +320,7 @@ private fun CardList(
     attentionCount: Int,
     showOnlyAttention: Boolean,
     onAttentionFilterChange: (Boolean) -> Unit,
-    selectedServiceName: String?,
+    selectedConnectionId: String?,
     onServiceClick: (ServiceQuotaPresentation) -> Unit,
     onSummaryProviderClick: (AiService) -> Unit,
     modifier: Modifier = Modifier
@@ -381,12 +389,12 @@ private fun CardList(
                 }
             }
         }
-        items(services, key = { it.service.name }) { service ->
+        items(services, key = { it.connection.id }) { service ->
             ServiceCard(
                 minimalDisplayEnabled = minimalDisplayEnabled,
                 service = service,
                 onClick = { onServiceClick(service) },
-                selected = service.service.name == selectedServiceName
+                selected = service.connection.id == selectedConnectionId
             )
         }
     }

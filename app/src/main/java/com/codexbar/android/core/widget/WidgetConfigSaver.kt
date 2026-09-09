@@ -6,7 +6,7 @@ import com.codexbar.android.core.domain.model.AiService
 /** Save an unfinished edit across rotation without applying it to the launcher. */
 internal val WidgetConfigSaver = mapSaver(
     save = { config: WidgetDisplayConfig -> mapOf(
-        "services" to config.services.joinToString(",") { it.name },
+        "connections" to config.connectionIds.joinToString(","),
         "reset" to config.showReset, "pace" to config.showPace, "freshness" to config.showFreshness,
         "template" to config.style.template.name, "background" to config.style.backgroundRgb,
         "opacity" to config.style.opacity, "foreground" to config.style.foreground.name,
@@ -15,7 +15,7 @@ internal val WidgetConfigSaver = mapSaver(
         "colors" to config.style.providerColors.entries.joinToString(",") { "${it.key.name}:${it.value}" }
     ) },
     restore = { values -> WidgetDisplayConfig(
-        services = (values["services"] as String).split(",").mapNotNull { name -> AiService.entries.firstOrNull { it.name == name } },
+        connectionIds = (values["connections"] as String).split(",").filter { it.isNotEmpty() },
         showReset = values["reset"] as Boolean, showPace = values["pace"] as Boolean,
         showFreshness = values["freshness"] as Boolean, maxRows = 2,
         style = WidgetStyle(template = WidgetTemplate.fromId(values["template"] as String),

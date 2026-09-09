@@ -43,7 +43,8 @@ class DashboardDeepLinkTest {
         ).readText().replace("\r\n", "\n")
 
         assertTrue(dashboard.contains("initialSelectedService: AiService? = null"))
-        assertTrue(dashboard.contains("selectedServiceName = initialSelectedService.name"))
+        assertTrue(dashboard.contains("firstOrNull { it.service == initialSelectedService }"))
+        assertTrue(dashboard.contains("selectedConnectionId = target.connection.id"))
         assertTrue(dashboard.contains("onInitialSelectionConsumed()"))
     }
 

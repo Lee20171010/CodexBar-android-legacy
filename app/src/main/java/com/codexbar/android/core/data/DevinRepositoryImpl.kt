@@ -5,6 +5,7 @@ import com.codexbar.android.core.domain.repository.QuotaRepository
 import com.codexbar.android.core.network.RetryAfter
 import com.codexbar.android.core.network.devin.DevinApiService
 import com.codexbar.android.core.security.EncryptedPrefsManager
+import com.codexbar.android.core.security.loadCredential
 import java.io.IOException
 import java.time.Clock
 import java.time.temporal.ChronoUnit
@@ -17,8 +18,8 @@ class DevinRepositoryImpl @Inject constructor(
     private val prefsManager: EncryptedPrefsManager,
     private val clock: Clock = Clock.systemUTC()
 ) : QuotaRepository {
-    override suspend fun fetchQuota(): Result<QuotaInfo, AppError> {
-        val credential = prefsManager.loadCredential(AiService.DEVIN)
+    override suspend fun fetchQuota(connection: AccountConnection?): Result<QuotaInfo, AppError> {
+        val credential = prefsManager.loadCredential(AiService.DEVIN, connection)
             ?: return Result.Failure(AppError.CredentialNotFound(AiService.DEVIN))
         return fetchQuota(credential)
     }

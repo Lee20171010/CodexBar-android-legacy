@@ -343,11 +343,19 @@ fun ConnectionsScreen(
         query = providerSearchQuery,
         filter = providerFilter,
         categoryFilter = providerCategory,
-        serviceStates = uiState.serviceStates
+        serviceStates = AiService.entries.associateWith { service ->
+            val accounts = uiState.connections.filter { it.service == service }
+            ServiceCredentialState(
+                isConnected = accounts.isNotEmpty(),
+                connectionHealth = if (accounts.any {
+                    uiState.connectionHealth[it.id] == ConnectionHealth.CONNECTED
+                }) ConnectionHealth.CONNECTED else ConnectionHealth.UNKNOWN
+            )
+        }
     )
-    val connectedCount = uiState.serviceStates.values.count {
-        it.isVerifiedConnected
-    }
+    val connectedCount = uiState.connections.filter {
+        uiState.connectionHealth[it.id] == ConnectionHealth.CONNECTED
+    }.distinctBy { it.service }.size
 
     LaunchedEffect(initialGeminiPairingUri) {
         if (initialGeminiPairingUri != null) {
@@ -428,6 +436,39 @@ fun ConnectionsScreen(
                 visibleProviders.forEach { service ->
                     val state = uiState.serviceStates[service] ?: ServiceCredentialState()
                     ServiceCredentialSection(
+                        accountControls = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                uiState.connections.filter { it.service == service }.forEach { connection ->
+                                    FilterChip(
+                                        selected = state.connection?.id == connection.id,
+                                        onClick = {
+                                            if (state.connection?.id != connection.id) {
+                                                viewModel.selectConnection(service, connection)
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        label = { Text(connection.name) }
+                                    )
+                                }
+                                TextButton(onClick = { viewModel.selectConnection(service, null) }) {
+                                    Text(stringResource(R.string.connection_add_account))
+                                }
+                                OutlinedTextField(
+                                    value = state.connectionName,
+                                    onValueChange = { viewModel.updateField(service, "connectionName", it) },
+                                    label = { Text(stringResource(R.string.connection_account_name)) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                if (state.connection != null) {
+                                    TextButton(
+                                        onClick = { viewModel.renameConnection(service) },
+                                        enabled = state.connectionName.isNotBlank() &&
+                                            state.connectionName.trim() != state.connection.name
+                                    ) { Text(stringResource(R.string.connection_save_name)) }
+                                }
+                            }
+                        },
                         service = service,
                         state = state,
                         expanded = expandedProviderName == service.name,
@@ -470,10 +511,11 @@ fun ConnectionsScreen(
                         onConnectAntigravityCompanion = viewModel::connectAntigravityCompanion,
                         onClaudePairingCodeChange = viewModel::updateClaudePairingCode,
                         onScanClaudePairing = {
+                            val deliverPairing = viewModel.captureClaudePairingScan()
                             startClaudePairingScan(
                                 context = context,
-                                onPairingCode = viewModel::importClaudePairingCode,
-                                onFailure = viewModel::reportClaudePairingScanFailure
+                                onPairingCode = { deliverPairing(it) },
+                                onFailure = { deliverPairing(null) }
                             )
                         },
                         onPasteClaudePairing = {
@@ -517,10 +559,10 @@ fun ConnectionsScreen(
         )
     }
 
-    uiState.disconnectConfirmService?.let { service ->
+    uiState.disconnectConfirmConnection?.let { connection ->
         DisconnectConfirmDialog(
-            service = service,
-            onConfirm = { viewModel.disconnectService(service) },
+            accountName = connection.name,
+            onConfirm = { viewModel.disconnectConnection(connection) },
             onDismiss = { viewModel.dismissDisconnectConfirmDialog() }
         )
     }
@@ -993,7 +1035,8 @@ private fun ServiceCredentialSection(
     onDisconnectCodexTelemetryCompanion: () -> Unit,
     onOpenSetupGuide: () -> Unit,
     onValidate: () -> Unit,
-    onDisconnect: () -> Unit
+    onDisconnect: () -> Unit,
+    accountControls: @Composable () -> Unit
 ) {
     val visualStyle = providerVisualStyle(service)
     var showManualSetup by rememberSaveable(service) {
@@ -1096,7 +1139,11 @@ private fun ServiceCredentialSection(
                 )
             }
 
-            if (expanded) {
+            if (expanded && state.isLoading) {
+                CircularProgressIndicator()
+            }
+            if (expanded && !state.isLoading) {
+                accountControls()
                 when {
                     service == AiService.ANTIGRAVITY -> AntigravityCompanionSetup(
                         state = state,
@@ -1445,6 +1492,7 @@ private fun CodexTelemetryCompanionSetup(
             Button(
                 onClick = onConnect,
                 enabled = state.codexTelemetryPairingCode.isNotBlank() &&
+                    state.connection != null &&
                     !state.isCodexTelemetryValidating,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -1474,6 +1522,9 @@ private fun CodexTelemetryCompanionSetup(
                 ) {
                     Text(stringResource(R.string.action_disconnect_codex_telemetry))
                 }
+            }
+            if (state.connection == null) {
+                Text(stringResource(R.string.connection_telemetry_requires_account))
             }
             Text(
                 text = stringResource(R.string.credential_codex_telemetry_security),
@@ -2678,15 +2729,15 @@ private fun SettingsToggle(
 
 @Composable
 private fun DisconnectConfirmDialog(
-    service: AiService,
+    accountName: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.disconnect_service_title, service.displayName)) },
+        title = { Text(stringResource(R.string.disconnect_service_title, accountName)) },
         text = {
-            Text(stringResource(R.string.disconnect_service_message, service.displayName))
+            Text(stringResource(R.string.disconnect_service_message, accountName))
         },
         confirmButton = {
             TextButton(onClick = onConfirm) {

@@ -2,6 +2,7 @@ package com.codexbar.android.core.data
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.domain.model.AppError
 import com.codexbar.android.core.domain.model.CodexContextUsage
 import com.codexbar.android.core.domain.model.CodexTelemetry
@@ -74,7 +75,10 @@ class CodexRepositoryImplTest {
             .build()
             .create(CodexTokenRefreshService::class.java)
 
-        prefsManager = mock(EncryptedPrefsManager::class.java)
+        prefsManager = mock(EncryptedPrefsManager::class.java) { invocation ->
+            if (invocation.method.name == "replaceCredential") true
+            else org.mockito.Mockito.RETURNS_DEFAULTS.answer(invocation)
+        }
         codexTelemetryClient = mock(CodexTelemetryClient::class.java)
         runTest {
             `when`(prefsManager.loadCredential(AiService.CODEX)).thenReturn(testCredential)
@@ -219,10 +223,11 @@ class CodexRepositoryImplTest {
 
         assertTrue(result is Result.Success)
         val saveInvocation = mockingDetails(prefsManager).invocations.first {
-            it.method.name == "saveCredential"
+            it.method.name == "replaceCredential"
         }
-        assertEquals(AiService.CODEX, saveInvocation.arguments[0])
-        val saved = saveInvocation.arguments[1] as Credential.CodexCredential
+        assertEquals(AccountConnection.legacy(AiService.CODEX), saveInvocation.arguments[0])
+        assertEquals(expiredCredential, saveInvocation.arguments[1])
+        val saved = saveInvocation.arguments[2] as Credential.CodexCredential
         assertEquals("rotated-access", saved.accessToken)
         assertEquals("rotated-refresh", saved.refreshToken)
         assertTrue(saved.expiresAt?.isAfter(Instant.now().plusSeconds(3_500)) == true)

@@ -3,6 +3,8 @@ package com.codexbar.android.core.data
 import com.codexbar.android.core.auth.codexAccountId
 import com.codexbar.android.core.auth.codexTokenExpiresAt
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
+import com.codexbar.android.core.security.loadCredential
 import com.codexbar.android.core.domain.model.AppError
 import com.codexbar.android.core.domain.model.CodexResetCredits
 import com.codexbar.android.core.domain.model.CodexTelemetry
@@ -43,13 +45,13 @@ class CodexRepositoryImpl @Inject constructor(
     private val codexTelemetryClient: CodexTelemetryClient
 ) : QuotaRepository {
 
-    override suspend fun fetchQuota(): Result<QuotaInfo, AppError> {
-        val storedCredential = prefsManager.loadCredential(AiService.CODEX)
+    override suspend fun fetchQuota(connection: AccountConnection?): Result<QuotaInfo, AppError> {
+        val storedCredential = prefsManager.loadCredential(AiService.CODEX, connection)
             as? Credential.CodexCredential
             ?: return Result.Failure(AppError.CredentialNotFound(AiService.CODEX))
 
         val credential = storedCredential.withDerivedClaims()
-        val usableCredential = when (val token = ensureValidToken(credential)) {
+        val usableCredential = when (val token = ensureValidToken(credential, connection)) {
             is TokenRefreshResult.Success -> token.credential
             is TokenRefreshResult.TransientFailure -> return Result.Failure(token.error)
             is TokenRefreshResult.PermanentFailure -> return Result.Failure(
@@ -67,16 +69,16 @@ class CodexRepositoryImpl @Inject constructor(
                 200 -> {
                     val body = response.body()
                         ?: return Result.Failure(AppError.ParseError("Empty response body"))
-                    Result.Success(mapToQuotaInfoWithExtras(body, usableCredential))
+                    Result.Success(mapToQuotaInfoWithExtras(body, usableCredential, connection))
                 }
                 401 -> {
-                    when (val refreshed = refreshToken(usableCredential)) {
+                    when (val refreshed = refreshToken(usableCredential, connection)) {
                         is TokenRefreshResult.Success -> {
                             val retryResponse = apiService.getUsage(
                                 authorization = "Bearer ${refreshed.credential.accessToken}",
                                 accountId = refreshed.credential.accountId
                             )
-                            mapRetryResponse(retryResponse, refreshed.credential)
+                            mapRetryResponse(retryResponse, refreshed.credential, connection)
                         }
                         is TokenRefreshResult.TransientFailure -> Result.Failure(refreshed.error)
                         is TokenRefreshResult.PermanentFailure -> Result.Failure(
@@ -133,20 +135,22 @@ class CodexRepositoryImpl @Inject constructor(
     }
 
     private suspend fun ensureValidToken(
-        credential: Credential.CodexCredential
+        credential: Credential.CodexCredential,
+        connection: AccountConnection?
     ): TokenRefreshResult {
         val expiresAt = credential.expiresAt ?: return TokenRefreshResult.Success(credential)
         if (Instant.now().isBefore(expiresAt.minusSeconds(PROACTIVE_REFRESH_BUFFER_SECONDS))) {
             return TokenRefreshResult.Success(credential)
         }
-        return refreshToken(credential)
+        return refreshToken(credential, connection)
     }
 
     private suspend fun refreshToken(
-        credential: Credential.CodexCredential
+        credential: Credential.CodexCredential,
+        connection: AccountConnection?
     ): TokenRefreshResult {
-        return tokenRefreshCoordinator.withRefreshLock(AiService.CODEX) {
-            val activeCredential = prefsManager.loadCredential(AiService.CODEX)
+        return tokenRefreshCoordinator.withRefreshLock(connection ?: AccountConnection.legacy(AiService.CODEX)) {
+            val activeCredential = prefsManager.loadCredential(AiService.CODEX, connection)
                 as? Credential.CodexCredential
                 ?: return@withRefreshLock TokenRefreshResult.PermanentFailure(
                     "Saved Codex credential is no longer available"
@@ -183,13 +187,15 @@ class CodexRepositoryImpl @Inject constructor(
                             ?.let { Instant.now().plusSeconds(it.toLong()) }
                             ?: codexTokenExpiresAt(body.accessToken)
                     )
-                    val currentCredential = prefsManager.loadCredential(AiService.CODEX)
-                        as? Credential.CodexCredential
-                    if (currentCredential?.matchesRefreshSubject(activeCredential) == true) {
-                        prefsManager.saveCredential(AiService.CODEX, newCredential)
+                    if (prefsManager.replaceCredential(
+                            connection ?: AccountConnection.legacy(AiService.CODEX),
+                            activeCredential,
+                            newCredential
+                        )
+                    ) {
                         TokenRefreshResult.Success(newCredential)
                     } else {
-                        currentCredential?.let {
+                        (prefsManager.loadCredential(AiService.CODEX, connection) as? Credential.CodexCredential)?.let {
                             TokenRefreshResult.Success(it.withDerivedClaims())
                         } ?: TokenRefreshResult.PermanentFailure(
                             "Saved Codex credential is no longer available"
@@ -237,13 +243,14 @@ class CodexRepositoryImpl @Inject constructor(
 
     private suspend fun mapRetryResponse(
         response: retrofit2.Response<CodexDto.UsageResponse>,
-        credential: Credential.CodexCredential
+        credential: Credential.CodexCredential,
+        connection: AccountConnection?
     ): Result<QuotaInfo, AppError> {
         return when (response.code()) {
             200 -> {
                 val body = response.body()
                     ?: return Result.Failure(AppError.ParseError("Empty response body"))
-                Result.Success(mapToQuotaInfoWithExtras(body, credential))
+                Result.Success(mapToQuotaInfoWithExtras(body, credential, connection))
             }
             401, 403 -> Result.Failure(AppError.AuthError(AiService.CODEX, isTerminal = true))
             429 -> Result.Failure(
@@ -316,8 +323,10 @@ class CodexRepositoryImpl @Inject constructor(
         }
     }
 
-    private suspend fun fetchTelemetryBestEffort(): CodexTelemetry? {
-        val credential = prefsManager.loadCodexTelemetryCredential() ?: return null
+    private suspend fun fetchTelemetryBestEffort(connection: AccountConnection?): CodexTelemetry? {
+        val credential = if (connection == null) prefsManager.loadCodexTelemetryCredential()
+            else prefsManager.loadCodexTelemetryCredential(connection)
+        if (credential == null) return null
         return try {
             withTimeoutOrNull(TELEMETRY_TIMEOUT_MILLIS) {
                 codexTelemetryClient.fetchSnapshot(credential)
@@ -331,10 +340,11 @@ class CodexRepositoryImpl @Inject constructor(
 
     private suspend fun mapToQuotaInfoWithExtras(
         response: CodexDto.UsageResponse,
-        credential: Credential.CodexCredential
+        credential: Credential.CodexCredential,
+        connection: AccountConnection?
     ): QuotaInfo = coroutineScope {
         val resetCredits = async { fetchResetCreditsBestEffort(credential) }
-        val telemetry = async { fetchTelemetryBestEffort() }
+        val telemetry = async { fetchTelemetryBestEffort(connection) }
         mapToQuotaInfo(
             response = response,
             resetCredits = resetCredits.await(),

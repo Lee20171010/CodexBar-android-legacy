@@ -19,6 +19,7 @@ import com.codexbar.android.EXTRA_DASHBOARD_SERVICE
 import com.codexbar.android.MainActivity
 import com.codexbar.android.R
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.monitoring.MonitoringActionReceiver
 import com.codexbar.android.core.monitoring.MonitoringSession
 import com.codexbar.android.core.presentation.QuotaPresentationSnapshot
@@ -56,9 +57,9 @@ class QuotaNotificationService @Inject constructor(
         /** Mirrors the thresholds QuotaSeverity uses, so the bar and the colors agree. */
         private const val WARNING_THRESHOLD_PERCENT = 60
         private const val CRITICAL_THRESHOLD_PERCENT = 85
-        private val SEVERITY_GOOD_COLOR = Color.rgb(52, 168, 83)
-        private val SEVERITY_WARNING_COLOR = Color.rgb(251, 188, 4)
-        private val SEVERITY_CRITICAL_COLOR = Color.rgb(234, 67, 53)
+        private val SEVERITY_GOOD_COLOR = 0xFF34A853.toInt()
+        private val SEVERITY_WARNING_COLOR = 0xFFFBBC04.toInt()
+        private val SEVERITY_CRITICAL_COLOR = 0xFFEA4335.toInt()
     }
 
     init {
@@ -137,7 +138,7 @@ class QuotaNotificationService @Inject constructor(
             snapshot.services.firstOrNull()?.let { service ->
                 localizedString(
                     R.string.notification_service_summary,
-                    service.service.displayName,
+                    service.accountLabel ?: service.service.displayName,
                     formatRemaining(service)
                 )
             } ?: localizedString(R.string.notification_no_quota_data)
@@ -156,7 +157,7 @@ class QuotaNotificationService @Inject constructor(
                         inbox.addLine(
                             localizedString(
                                 R.string.notification_service_summary,
-                                service.service.displayName,
+                                service.accountLabel ?: service.service.displayName,
                                 formatRemaining(service)
                             )
                         )
@@ -339,12 +340,22 @@ class QuotaNotificationService @Inject constructor(
         manager.cancelAll()
     }
 
+    fun cancelResetNotifications(connection: AccountConnection) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.activeNotifications.filter { it.tag?.startsWith("reset:${connection.id}:") == true }
+            .forEach { manager.cancel(it.tag, it.id) }
+    }
+
     fun showResetNotification(service: AiService, windowLabel: String) {
+        showResetNotification(AccountConnection.legacy(service), windowLabel)
+    }
+
+    fun showResetNotification(connection: AccountConnection, windowLabel: String) {
         val privacySettings = prefsManager.getPrivacySettings()
         val contentTitle = if (privacySettings.notificationRedactionEnabled) {
             localizedString(R.string.notification_reset_title)
         } else {
-            localizedString(R.string.notification_reset_service_title, service.displayName)
+            localizedString(R.string.notification_reset_service_title, connection.name)
         }
         val contentText = if (privacySettings.notificationRedactionEnabled) {
             localizedString(R.string.notification_reset_generic)
@@ -366,9 +377,8 @@ class QuotaNotificationService @Inject constructor(
             )
             .build()
 
-        val notificationId = RESET_NOTIFICATION_ID_BASE + "${service.name}_$windowLabel".hashCode().and(0xFFFF)
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(notificationId, notification)
+        manager.notify("reset:${connection.id}:$windowLabel", RESET_NOTIFICATION_ID_BASE, notification)
     }
 
     @RequiresApi(36)

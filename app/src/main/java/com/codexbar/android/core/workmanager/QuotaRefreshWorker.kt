@@ -12,6 +12,7 @@ import androidx.work.WorkerParameters
 import com.codexbar.android.R
 import com.codexbar.android.core.domain.model.AppError
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.data.QuotaHistoryStore
 import com.codexbar.android.core.data.QuotaRepositoryRegistry
 import com.codexbar.android.core.domain.model.QuotaInfo
@@ -24,8 +25,11 @@ import com.codexbar.android.core.presentation.QuotaPresentationMapper
 import com.codexbar.android.core.presentation.RefreshSourcePresentation
 import com.codexbar.android.core.security.EncryptedPrefsManager
 import com.codexbar.android.core.security.ConnectionHealthStore
+import com.codexbar.android.core.security.TokenRefreshCoordinator
 import com.codexbar.android.core.tile.QuotaTileService
+import com.codexbar.android.core.widget.QuotaGlanceWidget
 import com.codexbar.android.core.widget.WidgetUpdater
+import androidx.glance.appwidget.updateAll
 import com.codexbar.android.core.widget.QuotaWidgetReceiver
 import com.codexbar.android.core.widget.WidgetPrefsManager
 import dagger.assisted.Assisted
@@ -43,6 +47,7 @@ class QuotaRefreshWorker @AssistedInject constructor(
     private val repositoryRegistry: QuotaRepositoryRegistry,
     private val prefsManager: EncryptedPrefsManager,
     private val connectionHealthStore: ConnectionHealthStore,
+    private val publicationGate: TokenRefreshCoordinator,
     private val notificationService: QuotaNotificationService,
     private val widgetPrefsManager: WidgetPrefsManager,
     private val quotaHistoryStore: QuotaHistoryStore,
@@ -55,47 +60,52 @@ class QuotaRefreshWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         prefsManager.warmCache()
-        val repos = repositoryRegistry.entries().mapNotNull { (service, repository) ->
-            if (prefsManager.loadCredential(service) == null) return@mapNotNull null
-            service to repository
-        }
+        val revision = publicationGate.revision.value
+        val connections = prefsManager.loadConnections()
 
-        if (repos.isEmpty()) {
+        if (connections.isEmpty()) {
             // A widget can outlive its selected account. Always replace the provider's
             // initial loading layout even when there is no network work to perform.
-            val languageContext = ContextCompat.getContextForLanguage(applicationContext)
-            AiService.entries.forEach { service ->
-                widgetPrefsManager.cacheStatusMessageIfEmpty(
-                    service,
-                    languageContext.getString(R.string.widget_not_connected)
-                )
+            val published = publicationGate.publish(revision) {
+                val languageContext = ContextCompat.getContextForLanguage(applicationContext)
+                AiService.entries.forEach { service ->
+                    widgetPrefsManager.cacheStatusMessageIfEmpty(
+                        service,
+                        languageContext.getString(R.string.widget_not_connected)
+                    )
+                }
+                try {
+                    QuotaGlanceWidget().updateAll(applicationContext)
+                } catch (error: Exception) {
+                    if (error is kotlinx.coroutines.CancellationException) throw error
+                    // Widget rendering cannot turn a no-op account refresh into retry work.
+                    Log.e(TAG, "Widget render failed after disconnected refresh", error)
+                }
             }
-            try {
-                WidgetUpdater.updateAll(applicationContext)
-            } catch (error: Exception) {
-                // Widget rendering cannot turn a no-op account refresh into retry work.
-                Log.e(TAG, "Widget render failed after disconnected refresh", error)
-            }
-            return Result.success()
+            return if (published) Result.success() else Result.retry()
         }
 
         return try {
             val refreshResults = coroutineScope {
-                repos.map { (service, repo) ->
-                    async { service to repo.fetchQuota() }
+                connections.map { connection ->
+                    async { connection to repositoryRegistry.fetchQuota(connection) }
                 }.awaitAll()
             }
 
+            var hasSuccessfulQuotas = false
+            val published = publicationGate.publish(revision) {
             val successfulQuotas = mutableListOf<QuotaInfo>()
-            val errors = mutableMapOf<AiService, AppError>()
-            for ((service, result) in refreshResults) {
-                connectionHealthStore.record(service, result)
+            val errors = mutableMapOf<AccountConnection, AppError>()
+            val activeIds = prefsManager.loadConnections().map { it.id }.toSet()
+            for ((connection, result) in refreshResults) {
+                if (connection.id !in activeIds) continue
+                connectionHealthStore.record(connection, result)
                 when (result) {
                     is com.codexbar.android.core.domain.model.Result.Success -> {
                         successfulQuotas.add(result.value)
                     }
                     is com.codexbar.android.core.domain.model.Result.Failure -> {
-                        errors[service] = result.error
+                        errors[connection] = result.error
                     }
                 }
             }
@@ -110,7 +120,7 @@ class QuotaRefreshWorker @AssistedInject constructor(
             }
             val snapshot = presentationMapper.map(
                 quotas = successfulQuotas,
-                errors = errors,
+                connectionErrors = errors,
                 generatedAt = now,
                 privacy = PrivacyPresentation(
                     redactSensitiveValues = false,
@@ -144,19 +154,23 @@ class QuotaRefreshWorker @AssistedInject constructor(
                 applicationContext,
                 ComponentName(applicationContext, QuotaTileService::class.java)
             )
+            hasSuccessfulQuotas = successfulQuotas.isNotEmpty()
+            }
 
             WorkManagerInitializer.scheduleNextMonitoringRefresh(applicationContext)
 
-            if (successfulQuotas.isEmpty()) {
+            if (!published || !hasSuccessfulQuotas) {
                 Result.retry()
             } else {
                 Result.success()
             }
         } catch (error: Exception) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            publicationGate.publish(revision) {
             val languageContext = ContextCompat.getContextForLanguage(applicationContext)
-            repos.forEach { (service, _) ->
+            connections.forEach { connection ->
                 widgetPrefsManager.cacheStatusMessageIfEmpty(
-                    service,
+                    connection,
                     languageContext.getString(R.string.widget_refresh_failed)
                 )
             }
@@ -164,6 +178,7 @@ class QuotaRefreshWorker @AssistedInject constructor(
                 .onFailure { renderError ->
                     Log.e(TAG, "Widget render failed after refresh error", renderError)
                 }
+            }
             Log.e(TAG, "Quota refresh worker failed", error)
             Result.retry()
         }
@@ -178,19 +193,19 @@ class QuotaRefreshWorker @AssistedInject constructor(
     private suspend fun checkForResets(quotas: List<QuotaInfo>) {
         val now = Instant.now()
         for (quota in quotas) {
-            val previousResetTimes = prefsManager.loadResetTimes(quota.service)
+            val previousResetTimes = prefsManager.loadResetTimes(quota.connection)
 
             // Detect resets: previous resetsAt was in the future, now it's in the past
             for (window in quota.windows) {
                 val previousResetAt = previousResetTimes[window.label] ?: continue
                 if (previousResetAt.isBefore(now) && window.resetsAt != null && window.resetsAt.isAfter(now)) {
-                    notificationService.showResetNotification(quota.service, window.label)
+                    notificationService.showResetNotification(quota.connection, window.label)
                 }
             }
 
             // Save current reset times for next comparison
             prefsManager.saveResetTimes(
-                quota.service,
+                quota.connection,
                 quota.windows.map { it.label to it.resetsAt }
             )
         }

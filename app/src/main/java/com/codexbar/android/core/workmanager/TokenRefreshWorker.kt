@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import com.codexbar.android.core.auth.codexAccountId
 import com.codexbar.android.core.auth.codexTokenExpiresAt
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.domain.model.Credential
 import com.codexbar.android.core.network.codex.CodexDto
 import com.codexbar.android.core.network.codex.CodexTokenRefreshService
@@ -39,44 +40,51 @@ class TokenRefreshWorker @AssistedInject constructor(
     private val retryPolicy = TokenRefreshRetryPolicy()
 
     override suspend fun doWork(): Result {
+        val revision = tokenRefreshCoordinator.revision.value
         val results = coroutineScope {
-            AiService.entries
-                .mapNotNull { service ->
-                    prefsManager.loadCredential(service)?.let { credential -> service to credential }
+            prefsManager.loadConnections()
+                .mapNotNull { connection ->
+                    prefsManager.loadCredential(connection)?.let { credential -> connection to credential }
                 }
-                .map { (service, credential) -> async { refreshIfDue(service, credential) } }
+                .map { (connection, credential) -> async { refreshIfDue(connection, credential, revision) } }
                 .awaitAll()
         }
 
         return if (results.any { it.shouldRetryWork }) Result.retry() else Result.success()
     }
 
-    private suspend fun refreshIfDue(service: AiService, credential: Credential): RefreshRunResult {
+    private suspend fun refreshIfDue(connection: AccountConnection, credential: Credential, revision: Long): RefreshRunResult {
         val nowMillis = System.currentTimeMillis()
-        val credentialFingerprint = tokenRefreshStateStore.fingerprintFor(service, credential)
-        val previousState = tokenRefreshStateStore.load(service)
+        val credentialFingerprint = tokenRefreshStateStore.fingerprintFor(connection.service, credential)
+        val previousState = tokenRefreshStateStore.load(connection)
         return when (retryPolicy.decision(previousState, credentialFingerprint, nowMillis)) {
             TokenRefreshAttemptDecision.SkipTerminal,
             TokenRefreshAttemptDecision.SkipUntilDue -> RefreshRunResult.Skipped
 
             TokenRefreshAttemptDecision.Attempt -> {
-                val outcome = refreshIfNeeded(credential)
-                when (outcome) {
+                val outcome = refreshIfNeeded(connection, credential)
+                var runResult = RefreshRunResult.Skipped
+                tokenRefreshCoordinator.publish(revision) {
+                val savedCredential = prefsManager.loadCredential(connection)
+                    ?: return@publish
+                val expectedCredential = (outcome as? RefreshOutcome.Success)?.credential ?: credential
+                if (savedCredential != expectedCredential) return@publish
+                runResult = when (outcome) {
                     is RefreshOutcome.Success,
                     is RefreshOutcome.NotNeeded -> {
                         val currentCredential = when (outcome) {
                             is RefreshOutcome.Success -> outcome.credential
                             is RefreshOutcome.NotNeeded -> {
-                                prefsManager.loadCredential(service) ?: credential
+                                savedCredential
                             }
                             is RefreshOutcome.Failure -> error("unreachable")
                         }
                         val currentFingerprint = tokenRefreshStateStore.fingerprintFor(
-                            service,
+                            connection.service,
                             currentCredential
                         )
                         tokenRefreshStateStore.save(
-                            service,
+                            connection,
                             retryPolicy.success(
                                 credentialFingerprint = currentFingerprint,
                                 nextAttemptAtMillis = nextRefreshDueMillis(
@@ -86,14 +94,14 @@ class TokenRefreshWorker @AssistedInject constructor(
                             )
                         )
                         if (outcome is RefreshOutcome.Success) {
-                            connectionHealthStore.update(service, ConnectionHealth.CONNECTED)
+                            connectionHealthStore.update(connection, ConnectionHealth.CONNECTED)
                         }
                         RefreshRunResult.Succeeded
                     }
 
                     is RefreshOutcome.Failure -> {
                         tokenRefreshStateStore.save(
-                            service,
+                            connection,
                             retryPolicy.failure(
                                 previousState = previousState,
                                 credentialFingerprint = credentialFingerprint,
@@ -103,7 +111,7 @@ class TokenRefreshWorker @AssistedInject constructor(
                             )
                         )
                         connectionHealthStore.update(
-                            service,
+                            connection,
                             if (outcome.terminal) {
                                 ConnectionHealth.NEEDS_REAUTHENTICATION
                             } else {
@@ -113,22 +121,24 @@ class TokenRefreshWorker @AssistedInject constructor(
                         RefreshRunResult(shouldRetryWork = !outcome.terminal)
                     }
                 }
+                }
+                runResult
             }
         }
     }
 
-    private suspend fun refreshIfNeeded(credential: Credential): RefreshOutcome {
+    private suspend fun refreshIfNeeded(connection: AccountConnection, credential: Credential): RefreshOutcome {
         return when (credential) {
             is Credential.AntigravityCompanionCredential -> RefreshOutcome.NotNeeded
             is Credential.ClaudeCompanionCredential -> RefreshOutcome.NotNeeded
-            is Credential.CodexCredential -> refreshCodex(credential)
+            is Credential.CodexCredential -> refreshCodex(connection, credential)
             is Credential.GeminiCompanionCredential -> RefreshOutcome.NotNeeded
             is Credential.CopilotCredential -> RefreshOutcome.NotNeeded
             is Credential.ProviderSecretCredential -> RefreshOutcome.NotNeeded
         }
     }
 
-    private suspend fun refreshCodex(credential: Credential.CodexCredential): RefreshOutcome {
+    private suspend fun refreshCodex(connection: AccountConnection, credential: Credential.CodexCredential): RefreshOutcome {
         val credentialExpiry = credential.expiresAt ?: codexTokenExpiresAt(credential.accessToken)
         if (credentialExpiry == null || Instant.now().isBefore(
                 credentialExpiry.minusSeconds(REFRESH_BUFFER_SECONDS)
@@ -137,8 +147,8 @@ class TokenRefreshWorker @AssistedInject constructor(
             return RefreshOutcome.NotNeeded
         }
 
-        return tokenRefreshCoordinator.withRefreshLock(AiService.CODEX) {
-            val activeCredential = prefsManager.loadCredential(AiService.CODEX)
+        return tokenRefreshCoordinator.withRefreshLock(connection) {
+            val activeCredential = prefsManager.loadCredential(connection)
                 as? Credential.CodexCredential
                 ?: return@withRefreshLock RefreshOutcome.NotNeeded
 
@@ -177,10 +187,7 @@ class TokenRefreshWorker @AssistedInject constructor(
                             ?.let { Instant.now().plusSeconds(it.toLong()) }
                             ?: codexTokenExpiresAt(body.accessToken)
                     )
-                    val currentCredential = prefsManager.loadCredential(AiService.CODEX)
-                        as? Credential.CodexCredential
-                    if (currentCredential?.matchesRefreshSubject(activeCredential) == true) {
-                        prefsManager.saveCredential(AiService.CODEX, newCredential)
+                    if (prefsManager.replaceCredential(connection, activeCredential, newCredential)) {
                         RefreshOutcome.Success(newCredential)
                     } else {
                         RefreshOutcome.NotNeeded
@@ -196,6 +203,8 @@ class TokenRefreshWorker @AssistedInject constructor(
                         }
                     )
                 }
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
             } catch (_: Exception) {
                 RefreshOutcome.Failure()
             }

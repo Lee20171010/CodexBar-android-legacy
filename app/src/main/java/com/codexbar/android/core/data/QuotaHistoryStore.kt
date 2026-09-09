@@ -3,6 +3,7 @@ package com.codexbar.android.core.data
 import android.content.Context
 import android.content.SharedPreferences
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.domain.model.QuotaInfo
 import com.codexbar.android.core.presentation.AndroidQuotaPresentationText
 import com.codexbar.android.core.presentation.PacePresentation
@@ -28,7 +29,7 @@ class QuotaHistoryStore @Inject constructor(
         val editor = prefs.edit()
         for (quota in quotas) {
             for (window in quota.windows) {
-                val key = historyKey(quota.service, window.label)
+                val key = historyKey(quota.connection, window.label)
                 val sample = QuotaHistorySample(
                     fetchedAt = quota.fetchedAt,
                     utilization = window.utilization.coerceIn(0.0, 1.0),
@@ -49,9 +50,9 @@ class QuotaHistoryStore @Inject constructor(
             for (quota in quotas) {
                 for (window in quota.windows) {
                     put(
-                        QuotaPresentationMapper.metricKey(quota.service, window.label),
+                        QuotaPresentationMapper.metricKey(quota.connection, window.label),
                         calculator.calculate(
-                            samples = loadSamples(historyKey(quota.service, window.label)),
+                            samples = loadSamples(historyKey(quota.connection, window.label)),
                             currentWindow = window,
                             now = now
                         )
@@ -66,9 +67,9 @@ class QuotaHistoryStore @Inject constructor(
             for (quota in quotas) {
                 for (window in quota.windows) {
                     put(
-                        QuotaPresentationMapper.metricKey(quota.service, window.label),
+                        QuotaPresentationMapper.metricKey(quota.connection, window.label),
                         QuotaHistorySeries.forChart(
-                            loadSamples(historyKey(quota.service, window.label))
+                            loadSamples(historyKey(quota.connection, window.label))
                         )
                     )
                 }
@@ -77,7 +78,11 @@ class QuotaHistoryStore @Inject constructor(
     }
 
     fun deleteService(service: AiService) {
-        val prefix = "${service.name}:"
+        deleteConnection(AccountConnection.legacy(service))
+    }
+
+    fun deleteConnection(connection: AccountConnection) {
+        val prefix = "${connection.id}:"
         val editor = prefs.edit()
         prefs.all.keys.filter { it.startsWith(prefix) }.forEach { editor.remove(it) }
         editor.apply()
@@ -90,8 +95,8 @@ class QuotaHistoryStore @Inject constructor(
             .toList()
     }
 
-    private fun historyKey(service: AiService, label: String): String {
-        return "${service.name}:${URLEncoder.encode(label, StandardCharsets.UTF_8.name())}"
+    private fun historyKey(connection: AccountConnection, label: String): String {
+        return "${connection.id}:${URLEncoder.encode(label, StandardCharsets.UTF_8.name())}"
     }
 
     private fun QuotaHistorySample.serialize(): String {

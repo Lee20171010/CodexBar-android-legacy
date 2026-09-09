@@ -17,8 +17,10 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.glance.appwidget.compose
+import com.codexbar.android.ui.components.ConnectionOrderEditor
 import com.codexbar.android.ui.components.ProviderOrderEditor
 import com.codexbar.android.R
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.domain.model.AiService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -29,16 +31,19 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun WidgetStyleEditor(config: WidgetDisplayConfig, onChange: (WidgetDisplayConfig) -> Unit) {
+internal fun WidgetStyleEditor(config: WidgetDisplayConfig, connections: List<AccountConnection>, onChange: (WidgetDisplayConfig) -> Unit) {
     val style = config.style
+    val orderedConnections = connections.filter { it.id in config.connectionIds }
     Text(stringResource(R.string.widget_studio_title), style = MaterialTheme.typography.headlineSmall)
-    if (config.services.isNotEmpty()) {
+    if (orderedConnections.isNotEmpty()) {
         Card(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(R.string.provider_order_title), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.widget_provider_order_hint), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                ProviderOrderEditor(config.services) { onChange(config.copy(services = it)) }
+                ConnectionOrderEditor(orderedConnections) { reordered ->
+                    onChange(config.copy(connectionIds = reordered.map { it.id }))
+                }
             }
         }
     }
@@ -78,14 +83,15 @@ internal fun WidgetStyleEditor(config: WidgetDisplayConfig, onChange: (WidgetDis
             }
         }
     }
-    if (config.services.isNotEmpty()) {
+    if (orderedConnections.isNotEmpty()) {
+        val services = orderedConnections.map { it.service }.distinct()
         Card(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.widget_studio_provider_colors), style = MaterialTheme.typography.titleMedium)
-                var selected by remember { mutableStateOf(config.services.first()) }
-                val current = selected.takeIf { it in config.services } ?: config.services.first()
+                var selected by remember { mutableStateOf(services.first()) }
+                val current = selected.takeIf { it in services } ?: services.first()
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    config.services.forEach { service ->
+                    services.forEach { service ->
                         FilterChip(current == service, { selected = service }, label = {
                             Text(if (service == AiService.COPILOT) "Copilot" else service.displayName)
                         })

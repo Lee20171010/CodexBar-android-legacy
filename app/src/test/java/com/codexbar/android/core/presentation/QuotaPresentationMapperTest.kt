@@ -1,6 +1,7 @@
 package com.codexbar.android.core.presentation
 
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.domain.model.AppError
 import com.codexbar.android.core.domain.model.CodexResetCredits
 import com.codexbar.android.core.domain.model.CodexContextUsage
@@ -24,6 +25,28 @@ import java.time.ZoneOffset
 import java.util.Locale
 
 class QuotaPresentationMapperTest {
+    @Test
+    fun `same provider accounts keep separate history pace names and failures`() {
+        val first = AccountConnection("00000000-0000-0000-0000-000000000001", AiService.CODEX, "Work")
+        val second = AccountConnection("00000000-0000-0000-0000-000000000002", AiService.CODEX, "Personal")
+        val quota = QuotaInfo(AiService.CODEX, listOf(UsageWindow("5h", 0.2, null)), null,
+            fetchedAt = now, connection = first)
+        val pace = PacePresentation(PaceState.OnTrack, "Work pace")
+        val snapshot = mapper.map(
+            quotas = listOf(quota),
+            connectionErrors = mapOf(second to AppError.NetworkError("Offline")),
+            paceByMetricKey = mapOf(QuotaPresentationMapper.metricKey(first, "5h") to pace)
+        )
+        assertEquals(2, snapshot.services.size)
+        val work = snapshot.services.single { it.connection.id == first.id }
+        assertEquals("Work", work.accountLabel)
+        assertEquals(pace, work.primaryMetric?.pace)
+        val personal = snapshot.services.single { it.connection.id == second.id }
+        assertEquals("Personal", personal.accountLabel)
+        assertEquals(ServiceQuotaStatus.Offline, personal.status)
+        assertEquals("CODEX|5h", QuotaPresentationMapper.metricKey(AccountConnection.legacy(AiService.CODEX), "5h"))
+    }
+
     private val now = Instant.parse("2026-07-13T00:00:00Z")
     private val mapper = QuotaPresentationMapper(Clock.fixed(now, ZoneOffset.UTC))
 

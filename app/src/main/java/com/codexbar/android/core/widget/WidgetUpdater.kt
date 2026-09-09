@@ -85,16 +85,17 @@ object WidgetUpdater {
         val prefs = dependencies.widgetPrefs
         val strings = ContextCompat.getContextForLanguage(context)
         val config = prefs.getWidgetConfig(id)
-        val services = config.services
+        val connections = dependencies.readConnections().associateBy { it.id }
+        val selected = config.connectionIds.mapNotNull(connections::get)
         val rows = when {
             redacted -> listOf(strings.getString(R.string.widget_quota_hidden))
-            services.isEmpty() -> listOf(strings.getString(R.string.widget_no_services))
-            else -> services.take(3).map { service ->
-                val label = prefs.getCachedLabels(service).maxByOrNull { prefs.getCachedUtilization(service, it) }
-                val remaining = label?.let { prefs.getCachedRemainingLabel(service, it) }
-                    ?: prefs.getCachedStatusMessage(service)
+            selected.isEmpty() -> listOf(strings.getString(R.string.widget_no_services))
+            else -> selected.take(3).map { connection ->
+                val label = prefs.getCachedLabels(connection.id).maxByOrNull { prefs.getCachedUtilization(connection.id, it) }
+                val remaining = label?.let { prefs.getCachedRemainingLabel(connection.id, it) }
+                    ?: prefs.getCachedStatusMessage(connection.id)
                     ?: strings.getString(R.string.widget_waiting_for_data)
-                "${service.displayName} · $remaining"
+                "${connection.name} · $remaining"
             }
         }
         val openConfiguration = Intent(context, WidgetConfigurationActivity::class.java)

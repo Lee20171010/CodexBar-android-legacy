@@ -492,4 +492,9 @@
     <string name="validation_antigravity_companion_failed">Antigravityへの接続を確認できませんでした。IDEのログイン状態、companionの起動、Wi-FiまたはTailscale、ファイアウォール、時刻の自動設定を確認してください。詳細: %1$s</string>
     <string name="validation_antigravity_clipboard_empty">CBANTIGRAVITY1のコードが見つかりません。Antigravity companionのコードをコピーしてください。</string>
     <string name="validation_antigravity_scanner_failed">QRスキャナーを開けませんでした。Google Play開発者サービスを確認するか、CBANTIGRAVITY1のコードを貼り付けてください。</string>
+
+    <string name="connection_add_account">別のアカウントを追加</string>
+    <string name="connection_account_name">アカウント名</string>
+    <string name="connection_save_name">名前を保存</string>
+    <string name="connection_telemetry_requires_account">先に Codex アカウントを接続してください。ローカルテレメトリは、選択した 1 つのアカウントにのみ連携されます。</string>
 </resources>

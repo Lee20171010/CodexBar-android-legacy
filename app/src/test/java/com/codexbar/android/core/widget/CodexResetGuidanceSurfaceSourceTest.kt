@@ -16,7 +16,7 @@ class CodexResetGuidanceSurfaceSourceTest {
         assertTrue(prefs.contains("metric.resetPlan?.compactActionLabel"))
         assertTrue(prefs.contains("_reset_plan_label"))
         assertTrue(prefs.contains("fun getCachedResetPlanLabel("))
-        assertTrue(widget.contains("getCachedResetPlanLabel(service, label)"))
+        assertTrue(widget.contains("getCachedResetPlanLabel(connection.id, label)"))
         assertTrue(widget.contains("metric.resetAdvice?.let"))
     }
 

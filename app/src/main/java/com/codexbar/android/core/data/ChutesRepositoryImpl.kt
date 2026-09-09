@@ -1,6 +1,8 @@
 package com.codexbar.android.core.data
 
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
+import com.codexbar.android.core.security.loadCredential
 import com.codexbar.android.core.domain.model.AppError
 import com.codexbar.android.core.domain.model.Credential
 import com.codexbar.android.core.domain.model.ProviderSecretKind
@@ -21,8 +23,8 @@ class ChutesRepositoryImpl @Inject constructor(
     private val prefsManager: EncryptedPrefsManager
 ) : QuotaRepository {
 
-    override suspend fun fetchQuota(): Result<QuotaInfo, AppError> {
-        val credential = prefsManager.loadCredential(AiService.CHUTES)
+    override suspend fun fetchQuota(connection: AccountConnection?): Result<QuotaInfo, AppError> {
+        val credential = prefsManager.loadCredential(AiService.CHUTES, connection)
             as? Credential.ProviderSecretCredential
             ?: return Result.Failure(AppError.CredentialNotFound(AiService.CHUTES))
         return fetchQuota(credential)

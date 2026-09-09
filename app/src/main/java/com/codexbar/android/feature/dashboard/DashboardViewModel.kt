@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.codexbar.android.core.data.QuotaHistoryStore
 import com.codexbar.android.core.data.QuotaRepositoryRegistry
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.domain.model.AppError
 import com.codexbar.android.core.domain.model.Result
 import com.codexbar.android.core.monitoring.MonitoringSessionStore
@@ -17,6 +18,7 @@ import com.codexbar.android.core.presentation.QuotaPresentationMapper
 import com.codexbar.android.core.presentation.QuotaPresentationSnapshot
 import com.codexbar.android.core.security.EncryptedPrefsManager
 import com.codexbar.android.core.security.ConnectionHealthStore
+import com.codexbar.android.core.security.TokenRefreshCoordinator
 import com.codexbar.android.core.widget.WidgetUpdater
 import com.codexbar.android.core.widget.WidgetPrefsManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,6 +27,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.Instant
 import javax.inject.Inject
@@ -34,6 +38,7 @@ class DashboardViewModel @Inject constructor(
     private val repositoryRegistry: QuotaRepositoryRegistry,
     private val prefsManager: EncryptedPrefsManager,
     private val connectionHealthStore: ConnectionHealthStore,
+    private val publicationGate: TokenRefreshCoordinator,
     private val quotaHistoryStore: QuotaHistoryStore,
     private val monitoringSessionStore: MonitoringSessionStore,
     private val notificationService: QuotaNotificationService,
@@ -60,7 +65,13 @@ class DashboardViewModel @Inject constructor(
     }
 
     init {
-        refresh()
+        viewModelScope.launch {
+            publicationGate.revision.collectLatest {
+                _uiState.value = DashboardUiState.Loading
+                _isRefreshing.first { !it }
+                refresh()
+            }
+        }
     }
 
     fun refresh() {
@@ -69,37 +80,38 @@ class DashboardViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                val repos = repositoryRegistry.entries().mapNotNull { (service, repository) ->
-                    if (prefsManager.loadCredential(service) == null) return@mapNotNull null
-                    service to repository
-                }
+                val revision = publicationGate.revision.value
+                val connections = prefsManager.loadConnections()
 
-                if (repos.isEmpty()) {
+                if (connections.isEmpty()) {
                     val snapshot = presentationMapper.map(
                         emptyList(),
                         generatedAt = Instant.now()
                     )
-                    publishSnapshot(snapshot)
+                    publicationGate.publish(revision) { publishSnapshot(snapshot) }
                     return@launch
                 }
 
-                val deferreds = repos.map { (service, repo) ->
-                    async { service to repo.fetchQuota() }
+                val deferreds = connections.map { connection ->
+                    async { connection to repositoryRegistry.fetchQuota(connection) }
                 }
 
                 val results = deferreds.map { it.await() }
 
+                publicationGate.publish(revision) {
                 val successfulQuotas = mutableListOf<com.codexbar.android.core.domain.model.QuotaInfo>()
-                val errors = mutableMapOf<AiService, AppError>()
+                val errors = mutableMapOf<AccountConnection, AppError>()
+                val activeIds = prefsManager.loadConnections().map { it.id }.toSet()
 
-                for ((service, result) in results) {
-                    connectionHealthStore.record(service, result)
+                for ((connection, result) in results) {
+                    if (connection.id !in activeIds) continue
+                    connectionHealthStore.record(connection, result)
                     when (result) {
                         is Result.Success -> {
                             successfulQuotas.add(result.value)
                         }
                         is Result.Failure -> {
-                            errors[service] = result.error
+                            errors[connection] = result.error
                         }
                     }
                 }
@@ -117,13 +129,14 @@ class DashboardViewModel @Inject constructor(
 
                 val snapshot = presentationMapper.map(
                     quotas = successfulQuotas,
-                    errors = errors,
+                    connectionErrors = errors,
                     generatedAt = now,
                     privacy = privacy,
                     paceByMetricKey = paceByMetricKey,
                     historyByMetricKey = historyByMetricKey
                 )
                 publishSnapshot(snapshot)
+                }
             } finally {
                 _isRefreshing.value = false
             }

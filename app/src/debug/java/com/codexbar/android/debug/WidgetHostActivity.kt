@@ -127,7 +127,7 @@ class WidgetHostActivity : ComponentActivity() {
             )
             snapshot.services.forEach(widgetPrefs::cachePresentation)
             widgetPrefs.saveWidgetConfig(id, WidgetDisplayConfig(
-                services = listOf(AiService.CODEX, secondService) + if (three) listOf(AiService.CLAUDE) else emptyList(),
+                connectionIds = listOf(AiService.CODEX.name, secondService.name) + if (three) listOf(AiService.CLAUDE.name) else emptyList(),
                 style = WidgetStyle(template = WidgetTemplate.fromId(intent.getStringExtra("template")),
                     showSecondary = intent.getBooleanExtra("show_secondary", true),
                     opacity = intent.getIntExtra("opacity", 68))))

@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.codexbar.android.MainActivity
 import com.codexbar.android.R
-import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.security.EncryptedPrefsManager
 import com.codexbar.android.core.workmanager.WorkManagerInitializer
 import com.codexbar.android.ui.components.ProviderIcon
@@ -111,22 +111,24 @@ class WidgetConfigurationActivity : AppCompatActivity() {
             if (!encryptedPrefsManager.getPrivacySettings().screenPrivacyEnabled) {
                 window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
             }
+            val availableServices = encryptedPrefsManager.loadConnections()
 
             setContent {
                 CodexBarTheme {
-                    val availableServices = AiService.entries.filter {
-                        encryptedPrefsManager.hasCredential(it)
-                    }
                     val existingConfig = widgetPrefsManager.getWidgetConfig(appWidgetId)
                     var liveConfig by rememberSaveable(stateSaver = WidgetConfigSaver) {
-                        mutableStateOf(existingConfig.copy(
-                            services = existingConfig.services.ifEmpty { availableServices }, maxRows = 2))
+                        mutableStateOf(
+                            existingConfig.copy(
+                                connectionIds = existingConfig.connectionIds.ifEmpty { availableServices.map { it.id } },
+                                maxRows = 2
+                            )
+                        )
                     }
-                    val checkedState = availableServices.associateWith { it in liveConfig.services }
+                    val checkedState = availableServices.associate { it.id to (it.id in liveConfig.connectionIds) }
                     val anyChecked = checkedState.values.any { it }
                     val widgetHeight = AppWidgetManager.getInstance(this@WidgetConfigurationActivity)
                         .getAppWidgetOptions(appWidgetId).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
-                    val isReconfigure = existingConfig.services.isNotEmpty()
+                    val isReconfigure = existingConfig.connectionIds.isNotEmpty()
 
                     Scaffold(
                         topBar = {
@@ -205,7 +207,7 @@ class WidgetConfigurationActivity : AppCompatActivity() {
                                     .padding(horizontal = 16.dp, vertical = 16.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                WidgetStyleEditor(liveConfig) { updated ->
+                                WidgetStyleEditor(liveConfig, availableServices) { updated ->
                                     liveConfig = updated
                                 }
                                 widgetPrefsManager.renderDiagnostics(appWidgetId)?.let { diagnostics ->
@@ -274,10 +276,10 @@ class WidgetConfigurationActivity : AppCompatActivity() {
                                             availableServices.forEach { service ->
                                                 ServiceCheckRow(
                                                     service = service,
-                                                    checked = checkedState[service] ?: false,
+                                                    checked = checkedState[service.id] ?: false,
                                                     onCheckedChange = { checked ->
-                                                        liveConfig = liveConfig.copy(services = if (checked)
-                                                            liveConfig.services + service else liveConfig.services - service)
+                                                        liveConfig = liveConfig.copy(connectionIds = if (checked)
+                                                            liveConfig.connectionIds + service.id else liveConfig.connectionIds - service.id)
                                                     }
                                                 )
                                             }
@@ -375,7 +377,7 @@ class WidgetConfigurationActivity : AppCompatActivity() {
 
         val hadExistingConfiguration = widgetPrefsManager
             .getWidgetConfig(appWidgetId)
-            .services
+            .connectionIds
             .isNotEmpty()
 
         // commit() ensures data is persisted before the widget reads it
@@ -496,11 +498,11 @@ private fun ConfigToggleRow(
 
 @Composable
 private fun ServiceCheckRow(
-    service: AiService,
+    service: AccountConnection,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    val accent = CodexBarStateColors.providerAccent(service)
+    val accent = CodexBarStateColors.providerAccent(service.service)
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -531,12 +533,12 @@ private fun ServiceCheckRow(
                 color = accent.copy(alpha = 0.14f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    ProviderIcon(service, modifier = Modifier.size(26.dp))
+                    ProviderIcon(service.service, modifier = Modifier.size(26.dp))
                 }
             }
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = service.displayName,
+                text = service.name,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f)
             )

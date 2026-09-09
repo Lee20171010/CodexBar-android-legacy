@@ -79,4 +79,26 @@ class LiveNotificationSourceTest {
         assertTrue(monitoring.contains("primaryMetric?.usedPercent?.coerceIn(0, 100)"))
         assertFalse(monitoring.contains("barProgress?.times(100)"))
     }
+
+    @Test
+    fun `metric-less snapshot shows its error instead of waiting`() {
+        val source = File(
+            appDir,
+            "src/main/java/com/codexbar/android/core/notification/QuotaNotificationService.kt"
+        ).readText().replace("\r\n", "\n")
+        val formatter = source.substring(
+            source.indexOf("private fun formatRemaining("),
+            source.indexOf("private fun localizedString(")
+        )
+        val monitoring = source.substring(
+            source.indexOf("fun showMonitoringNotification("),
+            source.indexOf("private fun buildPlatformMonitoringNotification(")
+        )
+        val staleReasonIndex = formatter.indexOf("service.freshness.staleReason")
+        val waitingIndex = formatter.indexOf("R.string.notification_waiting_for_data")
+
+        assertTrue(monitoring.contains("primaryService == null || primaryMetric == null ->"))
+        assertTrue(staleReasonIndex >= 0)
+        assertTrue(waitingIndex > staleReasonIndex)
+    }
 }

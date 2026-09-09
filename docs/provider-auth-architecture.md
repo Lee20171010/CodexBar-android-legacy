@@ -18,14 +18,24 @@ This document records the shipped account-linking decision for each provider. Th
 | Fireworks AI | User-created API key plus account slug | Enabled for the fixed billing-summary endpoint | Key fingerprint and non-secret account slug outside encrypted storage | Key and account slug are value-encrypted, never logged, validated before save, and never sent across redirects | Reads rated billing line items for the last 30 days from `api.fireworks.ai/v1/accounts/{accountSlug}/billing/summary` |
 | OpenCode Go | User-created API key | Enabled for the fixed Go usage endpoint | Key is represented only by a provider-scoped fingerprint outside encrypted storage | Key is value-encrypted, never logged, validated before save, and never sent across redirects | Reads rolling 5-hour, weekly, and monthly Go plan usage from `opencode.ai/zen/go/v1/usage` |
 
+## Connection identity and migration
+
+`AccountConnection` identifies a saved account by a stable ID, provider, and editable display name (1-80 characters). New connections use canonical UUIDs; existing provider-named credential namespaces are adopted as legacy connection IDs. Account names are encrypted. Catalog discovery preserves unreadable credential entries for reconnection and does not rewrite existing ciphertext, reset times, history, or widget selections. Existing unsupported Claude/Gemini credential-removal rules still apply.
+
+Provider repositories remain shared by provider; the registry passes the selected connection into credential loading and stamps quota results with that identity. Dashboard cards, errors, history, widget selections/caches, refresh health/retries, and reset-notification tags use the connection ID, not its mutable name. Reauthentication retains identity and history. Disconnect removes only that connection's credentials, history, caches, retry/health state, and reset notifications; stale widget selections are filtered rather than redirected to a sibling.
+
+Credential rotation uses compare-and-replace in one DataStore transaction, so a late refresh cannot overwrite reauthentication or recreate a deleted account. Settings mutations and dashboard/worker publication share a catalog-wide lock and revision fence; obsolete network results are discarded. Editor generations and cancellation prevent delayed validation, selection loads, and QR callbacks from publishing into a newer editor. Confirmed deletion remains independent of subsequent editor selection.
+
+Codex local telemetry remains a single pairing with an explicit connection owner. Only that connection receives telemetry. Pairing from another saved Codex account reassigns ownership and invalidates Codex presentation caches. Deleting the owner clears the pairing; deleting a sibling does not. Shipped ownerless telemetry defaults to the legacy `CODEX` identity; a pairing saved before the first Codex login is adopted when that first account is saved.
+
 ## Cross-provider requirements
 
 - Token exchange clients use logging-disabled OkHttp clients.
 - Normal API clients use metadata-only logging with credential headers redacted.
 - Credentials are stored as versioned encrypted values in DataStore and excluded from cloud backup/device transfer.
 - Draft credential edits stay in memory until validation succeeds.
-- Disconnect purges credential, quota history, widget cache, and refresh state for the selected provider.
-- Refresh retry state is provider/account scoped so one provider outage cannot force repeated refreshes for unrelated providers.
+- Disconnect purges credential, quota history, widget cache, and refresh state for the selected connection.
+- Refresh retry state is connection scoped and credential-fingerprinted so one account's failure does not alter another account's retry state.
 - Live monitoring is user-started, time-bounded, and uses a standard notification style.
 - Claude and Gemini companion requests use HMAC-SHA256 authentication, bounded clock skew, nonce replay rejection, per-client rate limiting, and AES-256-GCM snapshot encryption.
 - A Claude companion that becomes unreachable is looked for again on the subnet the device is already attached to, on the paired port only. Candidates are found with a plain TCP connect, and the stored pairing key must authenticate the encrypted snapshot before the new address replaces the saved one, so a host that merely listens on that port cannot take over the connection. A terminal authentication failure never starts a scan, and a cooldown stops a switched-off companion from scanning on every refresh.
@@ -38,6 +48,6 @@ This document records the shipped account-linking decision for each provider. Th
 - Gemini direct Android OAuth remains disabled. Google's device authorization endpoint accepts only **TVs and Limited Input devices** OAuth clients, while normal Android or desktop client IDs fail with HTTP 401 `invalid_client`. That device flow also limits its allowed scopes and does not permit the `cloud-platform` scope the previous connector requested.
 - Google's supported Android authorization SDK provides short-lived client-side access tokens. Offline refresh-token access requires a backend, and it does not establish permission for a third-party app to call Gemini CLI's internal `cloudcode-pa` service. Gemini CLI's terms explicitly disallow third-party direct access to the services powering the CLI.
 - The shipped companion avoids that unsupported path: it launches the official CLI, requests its documented `/stats` screen, sanitizes the displayed quota fields, and serves the snapshot locally. Companion code never reads or exports the CLI credential files and makes no Google API request; only the official CLI performs its normal authenticated work.
-- Legacy Gemini OAuth/client-secret records from pre-v0.4.0 are purged during secure-store migration and cannot be used by the current runtime. Disconnect removes the companion pairing plus Gemini history and widget cache.
+- Legacy Gemini OAuth/client-secret records from pre-v0.4.0 are purged during secure-store migration and cannot be used by the current runtime. Disconnect removes the selected connection's companion pairing, history, and widget cache.
 
 References: [Anthropic authentication guidance](https://code.claude.com/docs/en/authentication), [CodexBar Claude provider behavior](https://github.com/steipete/CodexBar/blob/main/docs/claude.md), [Google limited-input device flow](https://developers.google.com/identity/protocols/oauth2/limited-input-device), [Android authorization guidance](https://developer.android.com/identity/authorization), [Gemini CLI quota guidance](https://github.com/google-gemini/gemini-cli/blob/main/docs/resources/quota-and-pricing.md), and [Gemini CLI terms and privacy notice](https://github.com/google-gemini/gemini-cli/blob/main/docs/resources/tos-privacy.md).

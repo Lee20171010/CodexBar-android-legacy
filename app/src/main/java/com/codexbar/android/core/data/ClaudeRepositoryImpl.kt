@@ -1,6 +1,8 @@
 package com.codexbar.android.core.data
 
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
+import com.codexbar.android.core.security.loadCredential
 import com.codexbar.android.core.domain.model.AppError
 import com.codexbar.android.core.domain.model.Credential
 import com.codexbar.android.core.domain.model.QuotaInfo
@@ -28,13 +30,13 @@ class ClaudeRepositoryImpl @Inject constructor(
     @Volatile
     private var nextRelocationAtMillis = 0L
 
-    override suspend fun fetchQuota(): Result<QuotaInfo, AppError> {
-        val credential = prefsManager.loadCredential(AiService.CLAUDE)
+    override suspend fun fetchQuota(connection: AccountConnection?): Result<QuotaInfo, AppError> {
+        val credential = prefsManager.loadCredential(AiService.CLAUDE, connection)
             as? Credential.ClaudeCompanionCredential
             ?: return Result.Failure(AppError.CredentialNotFound(AiService.CLAUDE))
         val direct = fetchCompanionQuota(credential)
         if (direct is Result.Success || !direct.isCompanionUnreachable()) return direct
-        return relocateCompanion(credential) ?: direct
+        return relocateCompanion(credential, connection) ?: direct
     }
 
     override suspend fun validateCredential(): Result<Unit, AppError> {
@@ -58,7 +60,8 @@ class ClaudeRepositoryImpl @Inject constructor(
      * valid encrypted envelope is persisted.
      */
     private suspend fun relocateCompanion(
-        credential: Credential.ClaudeCompanionCredential
+        credential: Credential.ClaudeCompanionCredential,
+        connection: AccountConnection?
     ): Result<QuotaInfo, AppError>? {
         val startedAt = nowMillis()
         if (startedAt < nextRelocationAtMillis) return null
@@ -76,7 +79,7 @@ class ClaudeRepositoryImpl @Inject constructor(
             val candidate = credential.copy(host = host)
             val result = fetchCompanionQuota(candidate)
             if (result is Result.Success) {
-                if (!prefsManager.updateClaudeCompanionHostIfCurrent(credential, host)) {
+                if (!prefsManager.updateClaudeCompanionHostIfCurrent(credential, host, connection)) {
                     return null
                 }
                 nextRelocationAtMillis = 0L

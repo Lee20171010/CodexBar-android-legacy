@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.codexbar.android.core.domain.model.AccountConnection
 import com.codexbar.android.core.domain.model.AiService
 import com.codexbar.android.core.widget.*
 import com.codexbar.android.ui.theme.CodexBarTheme
@@ -22,12 +23,17 @@ class WidgetStudioActivity : ComponentActivity() {
         check(intent.getBooleanExtra("seed_demo", false))
         setContent {
             CodexBarTheme {
+                val connections = listOf(
+                    AccountConnection.legacy(AiService.CODEX),
+                    AccountConnection.legacy(AiService.COPILOT),
+                    AccountConnection.legacy(AiService.CLAUDE)
+                )
                 var config by remember { mutableStateOf(WidgetDisplayConfig(
-                    services = listOf(AiService.CODEX, AiService.COPILOT, AiService.CLAUDE))) }
+                    connectionIds = connections.map { it.id })) }
                 Scaffold(topBar = { TopAppBar(title = { Text("Widget studio · demo") }) }) { padding ->
                     Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        WidgetStyleEditor(config) { config = it }
+                        WidgetStyleEditor(config, connections) { config = it }
                     }
                 }
             }

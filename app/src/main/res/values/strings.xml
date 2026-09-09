@@ -494,4 +494,9 @@
     <string name="validation_antigravity_companion_failed">Couldn’t verify Antigravity. Keep the IDE signed in and the companion running. Check Wi-Fi or Tailscale, private-network firewall access and automatic clocks. Detail: %1$s</string>
     <string name="validation_antigravity_clipboard_empty">No CBANTIGRAVITY1 pairing code was found. Copy the code from the Antigravity companion.</string>
     <string name="validation_antigravity_scanner_failed">Couldn’t open the secure scanner. Check Google Play services or paste the CBANTIGRAVITY1 pairing code.</string>
+
+    <string name="connection_add_account">Add another account</string>
+    <string name="connection_account_name">Account name</string>
+    <string name="connection_save_name">Save name</string>
+    <string name="connection_telemetry_requires_account">Connect a Codex account first. Local telemetry is paired with one selected account at a time.</string>
 </resources>

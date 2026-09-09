@@ -1,6 +1,8 @@
 package com.codexbar.android.core.data
 
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.domain.model.AccountConnection
+import com.codexbar.android.core.security.loadCredential
 import com.codexbar.android.core.domain.model.AppError
 import com.codexbar.android.core.domain.model.Credential
 import com.codexbar.android.core.domain.model.ProviderSecretKind
@@ -25,8 +27,8 @@ class FireworksRepositoryImpl @Inject constructor(
     private val clock: Clock = Clock.systemUTC()
 ) : QuotaRepository {
 
-    override suspend fun fetchQuota(): Result<QuotaInfo, AppError> {
-        val credential = prefsManager.loadCredential(AiService.FIREWORKS)
+    override suspend fun fetchQuota(connection: AccountConnection?): Result<QuotaInfo, AppError> {
+        val credential = prefsManager.loadCredential(AiService.FIREWORKS, connection)
             as? Credential.ProviderSecretCredential
             ?: return Result.Failure(AppError.CredentialNotFound(AiService.FIREWORKS))
         return fetchQuota(credential)

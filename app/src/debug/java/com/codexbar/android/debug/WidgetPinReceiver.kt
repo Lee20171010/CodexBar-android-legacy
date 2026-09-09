@@ -21,7 +21,7 @@ class WidgetPinReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 WidgetPrefsManager(context).saveWidgetConfig(id,
-                    WidgetDisplayConfig(services = listOf(AiService.CODEX, AiService.COPILOT)))
+                    WidgetDisplayConfig(connectionIds = listOf(AiService.CODEX.name, AiService.COPILOT.name)))
                 WidgetUpdater.update(context, id)
             } finally {
                 result.finish()

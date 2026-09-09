@@ -129,14 +129,14 @@ class WidgetRefreshSourceTest {
         val widgetPrefs = sourceFile("WidgetPrefsManager.kt")
         val widget = sourceFile("QuotaGlanceWidget.kt")
 
-        assertTrue(worker.contains("errors[service] = result.error"))
-        assertTrue(worker.contains("errors = errors"))
+        assertTrue(worker.contains("errors[connection] = result.error"))
+        assertTrue(worker.contains("connectionErrors = errors"))
         assertTrue(worker.contains("cacheQuotaData(snapshot)"))
         assertTrue(widgetPrefs.contains("service.freshness.staleReason?.let"))
         assertTrue(widgetPrefs.contains("fun getCachedStatusMessage("))
         assertTrue(widgetPrefs.contains("fun cacheStatusMessageIfEmpty("))
         assertTrue(worker.contains("R.string.widget_not_connected"))
-        assertTrue(sourceFile("WidgetDisplayData.kt").contains("getCachedStatusMessage(service) ?: waiting"))
+        assertTrue(sourceFile("WidgetDisplayData.kt").contains("getCachedStatusMessage(connection.id) ?: waiting"))
     }
 
     @Test
