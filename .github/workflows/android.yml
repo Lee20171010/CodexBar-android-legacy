@@ -107,6 +107,11 @@ jobs:
         working-directory: companion/claude
         run: npm run smoke:pty
 
+      - name: Check Windows resident host
+        if: runner.os == 'Windows'
+        working-directory: companion/claude
+        run: powershell.exe -NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File scripts/windows-resident.ps1 -Action Check
+
       - name: Audit Claude companion dependencies
         if: runner.os == 'Linux'
         working-directory: companion/claude

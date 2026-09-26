@@ -67,6 +67,30 @@ Using this computer as an exit node is compatible with this connection, but does
 
 ## Troubleshooting
 
+### Keep the Windows companion running
+
+After initial Claude sign-in and pairing, close the foreground companion and install the optional notification-area resident. From the extracted companion folder, pass the **same address already paired on Android**:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-resident.ps1 -Action Install -Address 100.90.0.10
+```
+
+The installer copies the runtime to `%LOCALAPPDATA%\CodexBar\ClaudeCompanion`, preserves Claude sign-in and the existing pairing key, and registers startup for the current Windows user. Task Scheduler starts it on sign-in and checks every minute that the resident is running, without launching duplicates. If Windows does not permit task registration, it uses the user's Startup folder instead; that fallback starts on sign-in but cannot restart a crashed resident itself.
+
+An icon appears in the Windows notification area (possibly under the hidden-icons arrow). Double-click it for connection status and the last successful refresh. Its menu offers **Restart**, **Pause**, and **Disable auto-start and exit**. The Start menu also contains **CodexBar Claude Companion** shortcuts for status, restart and pause. Pause lasts until Restart, including after crashes and Windows sign-in.
+
+The resident starts the bridge without a terminal window, restarts a crashed bridge with delays from 5 seconds up to 5 minutes, and recovers a stalled status heartbeat. Tailscale starting late is retried using the saved address. A timed-out Claude CLI is recreated on the next five-minute refresh. The resident owns only its bridge/CLI process tree; it does not stop Claude Desktop or other Claude Code sessions. Its status file contains process state and timestamps, never pairing codes, tokens, terminal text or usage values.
+
+The PC must remain powered on, awake, signed in, and connected to Tailscale. Locking Windows is fine. A sleeping or powered-off PC cannot relay usage; after wake, stale collection is restarted automatically. An expired login or a new first-run prompt still requires completing Claude's official setup.
+
+To remove automatic startup and stop the resident while preserving sign-in and pairing:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\CodexBar\ClaudeCompanion\scripts\windows-resident.ps1" -Action Uninstall
+```
+
+### Collection and connectivity
+
 - If `/usage` says **Showing last-known usage**, the companion waits for a fresh reading instead of presenting cached quota as newly collected. Retry after the provider rate limit clears.
 - If no snapshot is available, run `claude` from `~/.codexbar/claude-workspace` in a terminal, finish sign-in/trust prompts, enter `/usage`, then restart the companion. If upgrading from an earlier companion, confirm trust once for this new dedicated workspace; your Claude login and CodexBar pairing key stay unchanged.
 - If Windows installed the npm launcher instead of the native CLI, run `start-windows.cmd --claude-command claude.cmd`.

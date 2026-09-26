@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/index.js",
     "test": "node --test",
-    "check": "node --check src/config.js && node --check src/claude-cli.js && node --check src/index.js && node --check src/network.js && node --check src/node-pty-runtime.js && node --check src/protocol.js && node --check src/quota-parser.js && node --check src/server.js && node --check scripts/pty-smoke.js",
+    "check": "node --check src/config.js && node --check src/claude-cli.js && node --check src/index.js && node --check src/background-status.js && node --check src/network.js && node --check src/node-pty-runtime.js && node --check src/protocol.js && node --check src/quota-parser.js && node --check src/server.js && node --check scripts/pty-smoke.js && node --check scripts/windows-child.js",
     "smoke:pty": "node scripts/pty-smoke.js"
   },
   "dependencies": {
