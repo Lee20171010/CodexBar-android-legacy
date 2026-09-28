@@ -20,6 +20,7 @@ fun providerVisualStyle(service: AiService): ProviderVisualStyle {
     val colors = MaterialTheme.colorScheme
     val isDark = colors.surface.luminance() < 0.5f
     val accent = when (service) {
+        AiService.ANTIGRAVITY -> if (isDark) Color(0xFFBBC3FF) else Color(0xFF3559C7)
         AiService.CLAUDE -> if (isDark) Color(0xFFFFB77A) else Color(0xFF8A4F17)
         AiService.CODEX -> if (isDark) Color(0xFF63DBB6) else Color(0xFF006B53)
         AiService.GEMINI -> if (isDark) Color(0xFFBBC3FF) else Color(0xFF3559C7)

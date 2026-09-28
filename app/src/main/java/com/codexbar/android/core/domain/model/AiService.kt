@@ -119,5 +119,11 @@ enum class AiService(
         brandColor = 0xFF72BBEF,
         baseUrl = "https://api.devin.ai/",
         requiresManualCredentials = true
+    ),
+    ANTIGRAVITY(
+        displayName = "Antigravity",
+        brandColor = 0xFF4285F4,
+        baseUrl = "codexbar://antigravity-companion/",
+        requiresManualCredentials = false
     )
 }

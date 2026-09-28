@@ -33,6 +33,13 @@ data class ProviderMetadata(
 
 object ProviderCatalog {
     private val metadataByService = mapOf(
+        AiService.ANTIGRAVITY to ProviderMetadata(
+            category = ProviderCategory.CODING,
+            authMode = ProviderAuthMode.LOCAL_COMPANION,
+            aliases = setOf("google", "antigravity ide", "agy"),
+            guideAnchor = "antigravity",
+            recommended = true
+        ),
         AiService.CLAUDE to ProviderMetadata(
             category = ProviderCategory.CODING,
             authMode = ProviderAuthMode.LOCAL_COMPANION,

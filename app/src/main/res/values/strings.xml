@@ -476,4 +476,18 @@
     <string name="widget_provider_order_hint">Use ↑ ↓ to rearrange. Rows run top to bottom; columns run left to right. The preview updates below.</string>
     <string name="widget_template_dual_segments">Dual Segments</string>
     <string name="widget_template_segments_dual">Stacked Segments</string>
+    <string name="action_pair_antigravity_companion">Pair &amp; verify Antigravity companion</string>
+    <string name="action_repair_antigravity_companion">Replace Antigravity companion pairing</string>
+    <string name="action_scan_antigravity_pairing">Scan QR securely in CodexBar</string>
+    <string name="action_paste_antigravity_pairing">Paste pairing code</string>
+    <string name="credential_antigravity_companion_title">Antigravity desktop connection</string>
+    <string name="credential_antigravity_companion_body">Show model usage and reset times from Antigravity on your Windows PC. This is separate from Gemini CLI and your Claude subscription.</string>
+    <string name="credential_antigravity_companion_steps">1. Keep the signed-in Antigravity IDE open on your PC. 2. Start the Antigravity companion. 3. Scan its QR here. Across different networks, connect both devices to Tailscale and use the PC’s 100.x address.</string>
+    <string name="credential_antigravity_pairing_code">Antigravity companion pairing code</string>
+    <string name="credential_antigravity_pairing_hint">Starts with CBANTIGRAVITY1. Keep it private like a password.</string>
+    <string name="credential_antigravity_companion_security">Google credentials, conversations, files and email stay on the PC. Only encrypted model quotas and reset times are sent. Unknown quotas and weekly limits are not estimated.</string>
+    <string name="validation_antigravity_pairing_invalid">Invalid Antigravity companion pairing: %1$s</string>
+    <string name="validation_antigravity_companion_failed">Couldn’t verify Antigravity. Keep the IDE signed in and the companion running. Check Wi-Fi or Tailscale, private-network firewall access and automatic clocks. Detail: %1$s</string>
+    <string name="validation_antigravity_clipboard_empty">No CBANTIGRAVITY1 pairing code was found. Copy the code from the Antigravity companion.</string>
+    <string name="validation_antigravity_scanner_failed">Couldn’t open the secure scanner. Check Google Play services or paste the CBANTIGRAVITY1 pairing code.</string>
 </resources>

@@ -474,4 +474,18 @@
     <string name="widget_provider_order_hint">↑ ↓ で並び替え。行は上から下、列は左から右の順に表示されます。下のプレビューで確認できます。</string>
     <string name="widget_template_dual_segments">横2枠セグメント</string>
     <string name="widget_template_segments_dual">縦2段セグメント</string>
+    <string name="action_pair_antigravity_companion">Antigravityに接続して確認</string>
+    <string name="action_repair_antigravity_companion">Antigravityの接続先を変更</string>
+    <string name="action_scan_antigravity_pairing">CodexBar内で安全にQRを読み取る</string>
+    <string name="action_paste_antigravity_pairing">ペアリングコードを貼り付け</string>
+    <string name="credential_antigravity_companion_title">Antigravityのデスクトップ接続</string>
+    <string name="credential_antigravity_companion_body">Windows PCのAntigravityからモデル別使用量とリセット時刻を表示します。Gemini CLIやClaudeの契約とは別の使用枠です。</string>
+    <string name="credential_antigravity_companion_steps">1. PCでログイン済みのAntigravity IDEを開きます。2. Antigravity companionを起動します。3. ここでQRを読み取ります。別のネットワークからは両端末をTailscaleに接続し、PCの100.xアドレスを使用してください。</string>
+    <string name="credential_antigravity_pairing_code">Antigravityのペアリングコード</string>
+    <string name="credential_antigravity_pairing_hint">CBANTIGRAVITY1で始まります。パスワードと同様に扱ってください。</string>
+    <string name="credential_antigravity_companion_security">Googleの認証情報、会話、ファイル、メールアドレスはPC内に保持されます。送信するのは暗号化したモデル使用枠とリセット時刻のみです。取得できない使用枠や週次上限を推測して表示することはありません。</string>
+    <string name="validation_antigravity_pairing_invalid">Antigravityのペアリングコードが無効です: %1$s</string>
+    <string name="validation_antigravity_companion_failed">Antigravityへの接続を確認できませんでした。IDEのログイン状態、companionの起動、Wi-FiまたはTailscale、ファイアウォール、時刻の自動設定を確認してください。詳細: %1$s</string>
+    <string name="validation_antigravity_clipboard_empty">CBANTIGRAVITY1のコードが見つかりません。Antigravity companionのコードをコピーしてください。</string>
+    <string name="validation_antigravity_scanner_failed">QRスキャナーを開けませんでした。Google Play開発者サービスを確認するか、CBANTIGRAVITY1のコードを貼り付けてください。</string>
 </resources>

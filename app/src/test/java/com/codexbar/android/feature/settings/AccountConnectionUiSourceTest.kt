@@ -70,7 +70,7 @@ class AccountConnectionUiSourceTest {
         assertTrue(source.contains("PasswordVisualTransformation()"))
         assertTrue(
             source.contains(
-                "if (service != AiService.GEMINI && service != AiService.CLAUDE)"
+                "if (service != AiService.GEMINI && service != AiService.CLAUDE && service != AiService.ANTIGRAVITY)"
             )
         )
         assertFalse(source.contains("GEMINI_STATS_COMMAND"))

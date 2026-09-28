@@ -48,6 +48,10 @@ class TokenRefreshStateStore @Inject constructor(
 
     fun fingerprintFor(service: AiService, credential: Credential): String {
         val subject = when (credential) {
+            is Credential.AntigravityCompanionCredential -> listOf(
+                credential.companionId,
+                credential.sharedKeyBase64Url
+            )
             is Credential.ClaudeCompanionCredential -> listOf(
                 credential.companionId,
                 credential.sharedKeyBase64Url

@@ -119,6 +119,7 @@ class TokenRefreshWorker @AssistedInject constructor(
 
     private suspend fun refreshIfNeeded(credential: Credential): RefreshOutcome {
         return when (credential) {
+            is Credential.AntigravityCompanionCredential -> RefreshOutcome.NotNeeded
             is Credential.ClaudeCompanionCredential -> RefreshOutcome.NotNeeded
             is Credential.CodexCredential -> refreshCodex(credential)
             is Credential.GeminiCompanionCredential -> RefreshOutcome.NotNeeded
@@ -210,6 +211,7 @@ class TokenRefreshWorker @AssistedInject constructor(
     private fun nextRefreshDueMillis(credential: Credential, nowMillis: Long): Long {
         val minimumDue = nowMillis + MIN_REFRESH_GAP_MILLIS
         return when (credential) {
+            is Credential.AntigravityCompanionCredential -> Long.MAX_VALUE
             is Credential.ClaudeCompanionCredential -> Long.MAX_VALUE
 
             is Credential.CodexCredential -> {

@@ -17,6 +17,7 @@ import com.codexbar.android.core.domain.model.Result
 import com.codexbar.android.core.domain.model.providerMetadata
 import com.codexbar.android.core.monitoring.MonitoringSessionStore
 import com.codexbar.android.core.network.gemini.GeminiCompanionPairing
+import com.codexbar.android.core.network.antigravity.AntigravityCompanionPairing
 import com.codexbar.android.core.network.claude.ClaudeCompanionPairing
 import com.codexbar.android.core.network.codex.telemetry.CodexTelemetryClient
 import com.codexbar.android.core.network.codex.telemetry.CodexTelemetryPairing
@@ -33,6 +34,9 @@ import com.codexbar.android.core.workmanager.WorkManagerInitializer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -62,6 +66,9 @@ class SettingsViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+    private var antigravityPairingJob: Job? = null
+    private var antigravityPairingGeneration = 0L
+    private val antigravityPairingMutex = Mutex()
 
     init {
         viewModelScope.launch {
@@ -91,6 +98,10 @@ class SettingsViewModel @Inject constructor(
         for (service in AiService.entries) {
             val credential = prefsManager.loadCredential(service) ?: continue
             val state = when (credential) {
+                is Credential.AntigravityCompanionCredential -> ServiceCredentialState(
+                    isConnected = true,
+                    connectionHealth = connectionHealthStore.current(service)
+                )
                 is Credential.ClaudeCompanionCredential -> ServiceCredentialState(
                     isConnected = true,
                     connectionHealth = connectionHealthStore.current(service)
@@ -153,7 +164,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun buildCredential(service: AiService, state: ServiceCredentialState): Credential? {
-        if (service == AiService.CLAUDE || service == AiService.GEMINI) return null
+        if (service == AiService.CLAUDE || service == AiService.GEMINI || service == AiService.ANTIGRAVITY) return null
         if (state.accessToken.isBlank()) return null
 
         return when {
@@ -445,6 +456,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun disconnectService(service: AiService) {
+        if (service == AiService.ANTIGRAVITY) cancelAntigravityPairing()
         val currentState = _uiState.value.serviceStates[service] ?: ServiceCredentialState()
         _uiState.update { state ->
             state.copy(
@@ -459,7 +471,7 @@ class SettingsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             // The optional Codex telemetry pairing is independent from the OAuth account.
-            prefsManager.deleteCredential(service)
+            antigravityPairingMutex.withLock { prefsManager.deleteCredential(service) }
             connectionHealthStore.clear(service)
             quotaHistoryStore.deleteService(service)
             widgetPrefsManager.deleteServiceCache(service)
@@ -467,6 +479,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun deleteAllCredentials() {
+        cancelAntigravityPairing()
         _uiState.update {
             SettingsUiState(
                 refreshIntervalMinutes = it.refreshIntervalMinutes,
@@ -479,7 +492,7 @@ class SettingsViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            prefsManager.deleteAllCredentials()
+            antigravityPairingMutex.withLock { prefsManager.deleteAllCredentials() }
             connectionHealthStore.clearAll()
             AiService.entries.forEach { quotaHistoryStore.deleteService(it) }
             widgetPrefsManager.deleteAllServiceCaches()
@@ -765,6 +778,164 @@ class SettingsViewModel @Inject constructor(
             )
             is AppError.ServiceUnavailable -> appContext.getString(
                 R.string.validation_service_unavailable
+            )
+        }
+    }
+
+    fun updateAntigravityPairingCode(value: String) {
+        _uiState.update { state ->
+            val current = state.serviceStates[AiService.ANTIGRAVITY] ?: ServiceCredentialState()
+            state.copy(
+                serviceStates = state.serviceStates + (
+                    AiService.ANTIGRAVITY to current.copy(
+                        antigravityPairingCode = value.take(MAX_PAIRING_CODE_LENGTH),
+                        validationResult = null
+                    )
+                )
+            )
+        }
+    }
+
+    /**
+     * Accepts a pairing code that arrived whole, from the in-app scanner or the clipboard, and
+     * pairs immediately. Asking for a second tap after a successful scan only adds a step, and a
+     * malformed code reports the same error it would report from the button.
+     */
+    fun importAntigravityPairingCode(value: String) {
+        updateAntigravityPairingCode(value)
+        connectAntigravityCompanion()
+    }
+
+    fun reportAntigravityPairingClipboardEmpty() {
+        updateAntigravityValidation(
+            isValidating = false,
+            validationResult = ValidationResult.Failure(
+                appContext.getString(R.string.validation_antigravity_clipboard_empty)
+            ),
+            keepExistingConnection = true
+        )
+    }
+
+    fun reportAntigravityPairingScanFailure() {
+        updateAntigravityValidation(
+            isValidating = false,
+            validationResult = ValidationResult.Failure(
+                appContext.getString(R.string.validation_antigravity_scanner_failed)
+            ),
+            keepExistingConnection = true
+        )
+    }
+
+    fun connectAntigravityCompanion() {
+        cancelAntigravityPairing()
+        val generation = antigravityPairingGeneration
+        val state = _uiState.value.serviceStates[AiService.ANTIGRAVITY] ?: return
+        val credential = runCatching {
+            AntigravityCompanionPairing.parse(state.antigravityPairingCode)
+        }.getOrElse { error ->
+            updateAntigravityValidation(
+                isValidating = false,
+                validationResult = ValidationResult.Failure(
+                    appContext.getString(
+                        R.string.validation_antigravity_pairing_invalid,
+                        error.message ?: appContext.getString(R.string.validation_unknown)
+                    )
+                ),
+                keepExistingConnection = true
+            )
+            return
+        }
+
+        updateAntigravityValidation(
+            isValidating = true,
+            validationResult = null,
+            keepExistingConnection = true
+        )
+        antigravityPairingJob = viewModelScope.launch {
+            val hadPreviousConnection = prefsManager.loadCredential(AiService.ANTIGRAVITY) != null
+            val result = repositoryFor(AiService.ANTIGRAVITY).validateCredential(credential)
+            if (generation != antigravityPairingGeneration) return@launch
+            when (result) {
+                is Result.Success -> {
+                    antigravityPairingMutex.withLock {
+                        if (generation != antigravityPairingGeneration) return@launch
+                        prefsManager.saveCredential(AiService.ANTIGRAVITY, credential)
+                    }
+                    if (generation != antigravityPairingGeneration) return@launch
+                    connectionHealthStore.update(AiService.ANTIGRAVITY, ConnectionHealth.CONNECTED)
+                    updateAntigravityValidation(
+                        isValidating = false,
+                        validationResult = ValidationResult.Success,
+                        keepExistingConnection = false,
+                        connected = true,
+                        clearPairingCode = true
+                    )
+                    WorkManagerInitializer.enqueueManualQuotaRefresh(
+                        appContext,
+                        source = "antigravity_companion_connected"
+                    )
+                }
+                is Result.Failure -> {
+                    updateAntigravityValidation(
+                        isValidating = false,
+                        validationResult = ValidationResult.Failure(
+                            appContext.getString(
+                                R.string.validation_antigravity_companion_failed,
+                                formatAppError(result.error)
+                            )
+                        ),
+                        keepExistingConnection = true,
+                        connected = hadPreviousConnection
+                    )
+                }
+            }
+        }
+    }
+
+    private fun cancelAntigravityPairing() {
+        antigravityPairingGeneration++
+        antigravityPairingJob?.cancel()
+        antigravityPairingJob = null
+    }
+
+    private fun updateAntigravityValidation(
+        isValidating: Boolean,
+        validationResult: ValidationResult?,
+        keepExistingConnection: Boolean,
+        connected: Boolean = false,
+        clearPairingCode: Boolean = false
+    ) {
+        _uiState.update { state ->
+            val current = state.serviceStates[AiService.ANTIGRAVITY] ?: ServiceCredentialState()
+            state.copy(
+                serviceStates = state.serviceStates + (
+                    AiService.ANTIGRAVITY to current.copy(
+                        accessToken = if (clearPairingCode) "" else current.accessToken,
+                        refreshToken = if (clearPairingCode) "" else current.refreshToken,
+                        antigravityPairingCode = if (clearPairingCode) {
+                            ""
+                        } else {
+                            current.antigravityPairingCode
+                        },
+                        isValidating = isValidating,
+                        validationResult = validationResult,
+                        isConnected = if (keepExistingConnection) {
+                            current.isConnected || connected
+                        } else {
+                            connected
+                        },
+                        connectionHealth = if (connected) {
+                            ConnectionHealth.CONNECTED
+                        } else {
+                            current.connectionHealth
+                        },
+                        hasUnsavedChanges = if (clearPairingCode) {
+                            false
+                        } else {
+                            current.hasUnsavedChanges
+                        }
+                    )
+                )
             )
         }
     }
