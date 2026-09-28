@@ -1,6 +1,6 @@
 {
   "name": "@codexbar/claude-companion",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "private": true,
   "description": "Private local quota bridge between the official Claude Code CLI and CodexBar for Android",
   "type": "module",

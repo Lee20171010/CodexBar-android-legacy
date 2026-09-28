@@ -1,6 +1,6 @@
 {
   "name": "@codexbar/antigravity-companion",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "private": true,
   "description": "Private local quota bridge from the Antigravity Windows IDE to CodexBar for Android",
   "type": "module",

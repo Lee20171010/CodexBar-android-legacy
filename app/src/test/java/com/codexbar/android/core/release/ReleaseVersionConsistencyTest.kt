@@ -36,6 +36,7 @@ class ReleaseVersionConsistencyTest {
         assertTrue(version.matches(Regex("\\d+\\.\\d+\\.\\d+")))
         assertTrue(File(repoDir, "docs/releases/v$version.md").isFile)
         assertTrue(readme.contains("CodexBar-Claude-Companion-v$version.zip"))
+        assertTrue(readme.contains("CodexBar-Antigravity-Companion-v$version.zip"))
         assertTrue(readme.contains("CodexBar-Gemini-Companion-v$version.zip"))
         assertTrue(readme.contains("CodexBar-Codex-Telemetry-Companion-v$version.zip"))
         assertTrue(landingPage.contains("\"softwareVersion\": \"$version\""))

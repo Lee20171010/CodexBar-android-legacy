@@ -1,6 +1,6 @@
 {
   "name": "@codexbar/codex-telemetry-companion",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "private": true,
   "description": "Privacy-preserving local Codex CLI telemetry bridge for CodexBar for Android",
   "type": "module",
