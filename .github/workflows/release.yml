@@ -39,6 +39,15 @@ jobs:
             companion/claude/package-lock.json
             companion/gemini/package-lock.json
             companion/codex/package-lock.json
+            companion/antigravity/package-lock.json
+
+      - name: Verify Antigravity companion
+        working-directory: companion/antigravity
+        run: |
+          npm ci
+          npm run check
+          npm test
+          npm audit --omit=dev
 
       - name: Verify Gemini companion
         working-directory: companion/gemini
@@ -168,6 +177,13 @@ jobs:
           cp app/build/outputs/bundle/release/*.aab build/release/
           cp app/build/reports/sbom/release-sbom.cdx.json build/release/
           claude_companion_archive="CodexBar-Claude-Companion-${GITHUB_REF_NAME}.zip"
+          (
+            cd companion/antigravity
+            zip -r "../../build/release/CodexBar-Antigravity-Companion-${GITHUB_REF_NAME}.zip" \
+              README.md package.json package-lock.json scripts src test start-windows.cmd
+            npm sbom --omit=dev --sbom-format=cyclonedx \
+              > "../../build/release/antigravity-companion-sbom.cdx.json"
+          )
           (
             cd companion/claude
             zip -r "../../build/release/${claude_companion_archive}" \

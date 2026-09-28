@@ -2,7 +2,7 @@
 
 > Android port of [**CodexBar**](https://github.com/steipete/CodexBar) by [@steipete](https://github.com/steipete) — the macOS menu bar app for monitoring AI service quotas.
 
-Monitor AI service quotas from your Android device. Track Claude, Codex (ChatGPT), GitHub Copilot, Gemini, Cursor, z.ai, ZenMux, Kimi Code, ElevenLabs, OpenRouter, Synthetic, Chutes, DeepSeek, Venice, Moonshot API, Cline, IBM Bob, Fireworks AI, and Devin usage in one place. Optional private companions keep Claude and Gemini authentication inside their official CLIs and add local Codex context/token telemetry without exporting session content.
+Monitor AI service quotas from your Android device. Track Claude, Codex (ChatGPT), GitHub Copilot, Gemini, Cursor, z.ai, ZenMux, Kimi Code, ElevenLabs, OpenRouter, Synthetic, Chutes, DeepSeek, Venice, Moonshot API, Cline, IBM Bob, Fireworks AI, Devin, and Antigravity usage in one place. Optional private companions keep Claude and Gemini authentication inside their official CLIs and add local Codex context/token telemetry without exporting session content.
 
 <p align="center">
   <img src="docs/images/releases/v0.9.3/usage-light.png" width="320" alt="v0.9.3 compact three-provider Usage screen" />
@@ -16,7 +16,7 @@ Monitor AI service quotas from your Android device. Track Claude, Codex (ChatGPT
 
 v0.9.3 adds official provider artwork, saved Usage ordering, clearer widget ordering, and two dual-window segmented layouts optimized for 347 × 69dp. It also fixes Claude weekly quota parsing and documents private Tailscale pairing. See the [release notes](docs/releases/v0.9.3.md).
 
-- Unified quota monitoring for 19 providers: Claude, Codex, GitHub Copilot, Gemini, Cursor, z.ai, ZenMux, Kimi Code, ElevenLabs, OpenRouter, Synthetic, Chutes, DeepSeek, Venice, Moonshot API, Cline, IBM Bob, Fireworks AI, and Devin
+- Unified quota monitoring for 20 providers: Claude, Codex, GitHub Copilot, Gemini, Cursor, z.ai, ZenMux, Kimi Code, ElevenLabs, OpenRouter, Synthetic, Chutes, DeepSeek, Venice, Moonshot API, Cline, IBM Bob, Fireworks AI, Devin, and Antigravity
 - Four complete selectable design systems: the existing Material 3 UI, Liquid Glass, WinUI 3, and Aurora, each with light/dark support
 - A compact Usage overview with official provider icons, a saved custom provider order, two quota windows per provider, symmetric cards, and details on tap
 - Provider cards with animated rings, bars, exact values, reset countdowns, pace forecasts, and retained history charts
@@ -183,6 +183,12 @@ OpenAI's subscription quota response does not contain local Codex CLI context-wi
 4. Tap **Pair & verify telemetry companion**. Keep the companion running whenever local telemetry should refresh.
 
 The scanner is bounded to recent session files and reads only `token_count` plus model metadata. Android receives current context usage, aggregate token categories, daily totals, and model totals. Requests use HMAC-SHA256 authentication with replay and rate-limit defenses; snapshots use AES-256-GCM; the server accepts only a numeric private address. Never expose its port through router forwarding, a public IP, or a public tunnel. Codex subscription quota, reset credits, and model-limit windows continue to come directly from OpenAI even when this companion is off.
+
+### Antigravity
+
+The Windows [Antigravity companion](companion/antigravity/README.md) reads model quotas and reset times from the running, signed-in Antigravity IDE. In **Connections → Antigravity**, scan its private QR with the in-app scanner. This account usage is separate from Gemini CLI and Claude subscriptions.
+
+Keep Antigravity open and the PC awake. The optional tray resident starts at sign-in and recovers after a crash. For different networks, connect the phone and PC to Tailscale and pair using the PC's `100.x` address on port `43824`. Google credentials, conversations and files stay on the PC. Only explicitly reported model quotas are shown; weekly limits and credit balances are not inferred. These internal IDE endpoints may change after an Antigravity update.
 
 ### Gemini (Google)
 

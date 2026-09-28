@@ -17,7 +17,7 @@ class ReleaseVersionConsistencyTest {
         val version = requireNotNull(
             Regex("versionName\\s*=\\s*\"([^\"]+)\"").find(androidBuild)?.groupValues?.get(1)
         )
-        val companionVersions = listOf("claude", "gemini", "codex").map { companion ->
+        val companionVersions = listOf("claude", "gemini", "codex", "antigravity").map { companion ->
             val companionPackage = File(
                 repoDir,
                 "companion/$companion/package.json"
