@@ -67,7 +67,7 @@ if ($Action -eq 'Install') {
     $node = (Get-Command node.exe).Source
     Push-Location $runtime
     try {
-        & $node -e "require.resolve('qrcode-terminal')" 2>$null
+        & $node -e "try { require.resolve('qrcode-terminal') } catch { process.exit(1) }"
         if ($LASTEXITCODE -ne 0) {
             & (Get-Command npm.cmd).Source ci --omit=dev
             if ($LASTEXITCODE -ne 0) { throw 'Installing companion dependencies failed.' }
