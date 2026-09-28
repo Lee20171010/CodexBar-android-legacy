@@ -229,7 +229,8 @@ function Resident-Tick {
             if (([DateTime]::UtcNow - $script:startedAt).TotalMinutes -gt 2) { Retry-Later }
         }
     }
-    $tray.Text = if ($script:paused) { 'CodexBar Antigravity - paused' } else { 'CodexBar Antigravity - ' + $script:message.Substring(0, [Math]::Min(44, $script:message.Length)) }
+    $trayLabel = if ($script:paused) { 'CodexBar Antigravity - paused' } else { 'CodexBar Antigravity - ' + $script:message }
+    $tray.Text = $trayLabel.Substring(0, [Math]::Min(63, $trayLabel.Length))
 }
 
 $tray = New-Object Windows.Forms.NotifyIcon
