@@ -68,14 +68,16 @@ if ($Action -eq 'Install') {
     $claude = (Get-Command claude.exe).Source
     Push-Location $runtime
     try {
-        & $node -e "require.resolve('node-pty'); require.resolve('@xterm/headless'); require.resolve('qrcode-terminal')" 2>$null
+        & $node -e "try { require.resolve('node-pty'); require.resolve('@xterm/headless'); require.resolve('qrcode-terminal') } catch { process.exit(1) }"
         if ($LASTEXITCODE -ne 0) {
             & (Get-Command npm.cmd).Source ci --omit=dev
             if ($LASTEXITCODE -ne 0) { throw 'Installing companion dependencies failed.' }
         }
     } finally { Pop-Location }
-    if (!$Address -and (Test-Path -LiteralPath $settingsPath)) {
-        $Address = (Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json).address
+    if (Test-Path -LiteralPath $settingsPath) {
+        $savedSettings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+        if (!$Address) { $Address = $savedSettings.address }
+        if (!$PSBoundParameters.ContainsKey('Port')) { $Port = $savedSettings.port }
     }
     $parsedAddress = $null
     if (![Net.IPAddress]::TryParse($Address, [ref]$parsedAddress) -or $parsedAddress.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork -or $Port -lt 1024 -or $Port -gt 65535) {
