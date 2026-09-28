@@ -26,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.codexbar.android.R
+import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.presentation.compactModelQuotaLabel
 import com.codexbar.android.core.presentation.ServiceQuotaPresentation
 import com.codexbar.android.core.presentation.ServiceQuotaStatus
 import com.codexbar.android.ui.components.ProviderIcon
@@ -69,7 +71,10 @@ fun ServiceCard(
                     (listOfNotNull(service.primaryMetric) + service.metrics.filterNot { it.id == service.primaryMetric?.id }).take(2).forEach { metric ->
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(metric.label, style = MaterialTheme.typography.labelSmall,
+                                val compactLabel = if (service.service == AiService.ANTIGRAVITY) {
+                                    compactModelQuotaLabel(metric.label) ?: metric.label
+                                } else metric.label
+                                Text(compactLabel, style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.weight(1f), maxLines = 1,
                                     overflow = TextOverflow.Ellipsis)

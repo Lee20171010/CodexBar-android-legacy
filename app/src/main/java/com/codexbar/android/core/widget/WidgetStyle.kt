@@ -1,6 +1,7 @@
 package com.codexbar.android.core.widget
 
 import com.codexbar.android.core.domain.model.AiService
+import com.codexbar.android.core.presentation.compactModelQuotaLabel
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.roundToInt
@@ -57,6 +58,7 @@ internal fun widgetPercent(remaining: Float?): String = remaining
     ?.takeIf { it.isFinite() }?.let { "${(it.coerceIn(0f, 1f) * 100).roundToInt()}%" } ?: "—"
 
 internal fun widgetWindowLabel(label: String): String {
+    compactModelQuotaLabel(label)?.let { return it }
     val key = label.lowercase(Locale.ROOT)
     return when {
         "5-hour" in key || "5 hour" in key || "5h" in key || "5時間" in key || "session" in key -> "5h"
