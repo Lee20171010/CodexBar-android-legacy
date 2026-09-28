@@ -69,6 +69,8 @@ export class ClaudeUsageSession {
             'Claude Code did not return complete plan usage. Run `claude` in ~/.codexbar/claude-workspace, finish sign-in and trust prompts, then confirm `/usage` works.'
           )
         );
+        // A login prompt or stuck redraw must not poison every later refresh.
+        this.close();
       }, this.timeoutMillis);
     });
   }

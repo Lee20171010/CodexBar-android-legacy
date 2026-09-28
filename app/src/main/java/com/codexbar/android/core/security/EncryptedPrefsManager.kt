@@ -102,13 +102,20 @@ class EncryptedPrefsManager @Inject constructor(
             service != AiService.CLAUDE || credential is Credential.ClaudeCompanionCredential
         ) { "Claude accepts only a local companion pairing" }
 
+        require(service != AiService.ANTIGRAVITY || credential is Credential.AntigravityCompanionCredential) {
+            "Antigravity accepts only a local companion pairing"
+        }
+        require(credential !is Credential.AntigravityCompanionCredential || service == AiService.ANTIGRAVITY) {
+            "Antigravity pairing does not match provider"
+        }
         val updated = dataStore.edit { prefs ->
             prefs.removeServiceEntries(service)
             val prefix = service.name
 
             if (
                 credential !is Credential.GeminiCompanionCredential &&
-                credential !is Credential.ClaudeCompanionCredential
+                credential !is Credential.ClaudeCompanionCredential &&
+                credential !is Credential.AntigravityCompanionCredential
             ) {
                 prefs.putEncryptedString("${prefix}_access_token", credential.accessToken)
                 credential.refreshToken?.let {
@@ -117,6 +124,16 @@ class EncryptedPrefsManager @Inject constructor(
             }
 
             when (credential) {
+                is Credential.AntigravityCompanionCredential -> {
+                    prefs.putEncryptedString("${prefix}_companion_host", credential.host)
+                    prefs[longPreferencesKey("${prefix}_companion_port")] = credential.port.toLong()
+                    prefs.putEncryptedString("${prefix}_companion_id", credential.companionId)
+                    prefs.putEncryptedString(
+                        "${prefix}_companion_shared_key",
+                        credential.sharedKeyBase64Url
+                    )
+                }
+
                 is Credential.ClaudeCompanionCredential -> {
                     prefs.putEncryptedString("${prefix}_companion_host", credential.host)
                     prefs[longPreferencesKey("${prefix}_companion_port")] = credential.port.toLong()
@@ -163,6 +180,23 @@ class EncryptedPrefsManager @Inject constructor(
 
     suspend fun loadCredential(service: AiService): Credential? {
         return readCredential(readPreferences(), service)
+    }
+
+    suspend fun updateAntigravityCompanionHostIfCurrent(
+        expected: Credential.AntigravityCompanionCredential,
+        host: String
+    ): Boolean {
+        var applied = false
+        val updated = dataStore.edit { prefs ->
+            // Disconnect and re-pair also use this transaction, so an in-flight scan cannot
+            // restore a deleted pairing or overwrite a newer one.
+            if (readCredential(prefs, AiService.ANTIGRAVITY) == expected) {
+                prefs.putEncryptedString("${AiService.ANTIGRAVITY.name}_companion_host", host)
+                applied = true
+            }
+        }
+        updateCache(updated)
+        return applied
     }
 
     suspend fun updateClaudeCompanionHostIfCurrent(
@@ -369,6 +403,27 @@ class EncryptedPrefsManager @Inject constructor(
         val prefix = service.name
 
         return when {
+            service == AiService.ANTIGRAVITY -> {
+                val companionHost = prefs.getEncryptedString("${prefix}_companion_host")
+                if (companionHost != null) {
+                    val port = prefs[longPreferencesKey("${prefix}_companion_port")]
+                        ?.takeIf { it in 1..65535 }
+                        ?.toInt()
+                        ?: return null
+                    val companionId = prefs.getEncryptedString("${prefix}_companion_id")
+                        ?: return null
+                    val sharedKey = prefs.getEncryptedString("${prefix}_companion_shared_key")
+                        ?: return null
+                    return Credential.AntigravityCompanionCredential(
+                        host = companionHost,
+                        port = port,
+                        companionId = companionId,
+                        sharedKeyBase64Url = sharedKey
+                    )
+                }
+                null
+            }
+
             service == AiService.CLAUDE -> {
                 val companionHost = prefs.getEncryptedString("${prefix}_companion_host")
                 if (companionHost != null) {

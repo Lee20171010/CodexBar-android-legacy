@@ -1,5 +1,6 @@
 package com.codexbar.android.di
 
+import com.codexbar.android.core.data.AntigravityRepositoryImpl
 import com.codexbar.android.core.data.ClaudeRepositoryImpl
 import com.codexbar.android.core.data.ChutesRepositoryImpl
 import com.codexbar.android.core.data.ClinePassRepositoryImpl
@@ -21,6 +22,7 @@ import com.codexbar.android.core.data.ZaiRepositoryImpl
 import com.codexbar.android.core.data.ZenMuxRepositoryImpl
 import com.codexbar.android.core.domain.model.AiService
 import com.codexbar.android.core.domain.repository.QuotaRepository
+import com.codexbar.android.core.network.antigravity.AntigravityCompanionClient
 import com.codexbar.android.core.network.claude.ClaudeCompanionClient
 import com.codexbar.android.core.network.companion.LocalCompanionLocator
 import com.codexbar.android.core.network.chutes.ChutesApiService
@@ -59,6 +61,16 @@ annotation class AiServiceKey(val value: AiService)
 @Module
 @InstallIn(SingletonComponent::class)
 object RepositoryModule {
+
+    @Provides
+    @Singleton
+    @IntoMap
+    @AiServiceKey(AiService.ANTIGRAVITY)
+    fun provideAntigravityRepository(
+        companionClient: AntigravityCompanionClient,
+        prefsManager: EncryptedPrefsManager,
+        companionLocator: LocalCompanionLocator
+    ): QuotaRepository = AntigravityRepositoryImpl(companionClient, prefsManager, companionLocator)
 
     @Provides
     @Singleton

@@ -188,8 +188,21 @@ private fun ScreenshotActivity.createScreenshotSnapshot(now: Instant): QuotaPres
             fetchedAt = now.minusSeconds(68)
         )
     ).let { data ->
+        if (intent.getBooleanExtra("antigravity", false)) data + QuotaInfo(
+            service = AiService.ANTIGRAVITY,
+            windows = listOf(
+                UsageWindow("Gemini 3.1 Pro (High)", 0.57, now.plusSeconds(7200)),
+                UsageWindow("Gemini 3.1 Pro (Low)", 0.25, now.plusSeconds(7200)),
+                UsageWindow("Gemini 3.6 Flash (Medium)", 0.18, now.plusSeconds(7200)),
+                UsageWindow("Claude Sonnet 4.6 (Thinking)", 0.32, now.plusSeconds(14400))
+            ),
+            extraUsage = null,
+            tier = null,
+            fetchedAt = now.minusSeconds(24)
+        ) else data
+    }.let { data ->
         if (intent.getBooleanExtra("personal", false)) data.filter {
-            it.service in listOf(AiService.CODEX, AiService.COPILOT, AiService.CLAUDE)
+            it.service in listOf(AiService.CODEX, AiService.COPILOT, AiService.CLAUDE, AiService.ANTIGRAVITY)
         } else data
     }
 

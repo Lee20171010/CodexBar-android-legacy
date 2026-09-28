@@ -110,10 +110,16 @@ class WidgetHostActivity : ComponentActivity() {
             encryptedPrefs.setRefreshInterval(0L)
             val now = Instant.now()
             val three = intent.getBooleanExtra("three_services", false)
+            val antigravity = intent.getBooleanExtra("antigravity", false)
+            val secondService = if (antigravity) AiService.ANTIGRAVITY else AiService.COPILOT
+            val secondWindows = if (antigravity) listOf(
+                UsageWindow("Gemini 3.1 Pro (High)", 0.57, now.plusSeconds(7200)),
+                UsageWindow("Gemini 3.1 Pro (Low)", 0.25, now.plusSeconds(7200))
+            ) else listOf(UsageWindow("Premium", 0.26, now.plusSeconds(86400), 2592000))
             val snapshot = QuotaPresentationMapper(text = AndroidQuotaPresentationText(this@WidgetHostActivity)).map(
                 quotas = listOf(
                     QuotaInfo(AiService.CODEX, listOf(UsageWindow("5-Hour", 0.38, now.plusSeconds(7200), 18000), UsageWindow("Weekly", 0.21, now.plusSeconds(273600), 604800)), null, "Plus", now),
-                    QuotaInfo(AiService.COPILOT, listOf(UsageWindow("Premium", 0.26, now.plusSeconds(86400), 2592000)), null, "Pro", now)
+                    QuotaInfo(secondService, secondWindows, null, null, now)
                 ) + if (three) listOf(QuotaInfo(AiService.CLAUDE,
                     listOf(UsageWindow("5-Hour", 0.13, now.plusSeconds(8280), 18000),
                         UsageWindow("Weekly", 0.44, now.plusSeconds(435600), 604800)), null, "Pro", now)) else emptyList(),
@@ -121,7 +127,7 @@ class WidgetHostActivity : ComponentActivity() {
             )
             snapshot.services.forEach(widgetPrefs::cachePresentation)
             widgetPrefs.saveWidgetConfig(id, WidgetDisplayConfig(
-                services = listOf(AiService.CODEX, AiService.COPILOT) + if (three) listOf(AiService.CLAUDE) else emptyList(),
+                services = listOf(AiService.CODEX, secondService) + if (three) listOf(AiService.CLAUDE) else emptyList(),
                 style = WidgetStyle(template = WidgetTemplate.fromId(intent.getStringExtra("template")),
                     showSecondary = intent.getBooleanExtra("show_secondary", true),
                     opacity = intent.getIntExtra("opacity", 68))))

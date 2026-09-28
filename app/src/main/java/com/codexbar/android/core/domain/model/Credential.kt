@@ -13,6 +13,17 @@ sealed class Credential {
         val expiresAt: Instant? = null
     ) : Credential()
 
+    /** Local Antigravity pairing key; Google credentials remain in the desktop IDE. */
+    data class AntigravityCompanionCredential(
+        val host: String,
+        val port: Int,
+        val companionId: String,
+        val sharedKeyBase64Url: String
+    ) : Credential() {
+        override val accessToken: String = sharedKeyBase64Url
+        override val refreshToken: String? = null
+    }
+
     /**
      * A local Claude Code companion pairing. Anthropic credentials remain inside the
      * official CLI; Android stores only the key used to authenticate encrypted snapshots.

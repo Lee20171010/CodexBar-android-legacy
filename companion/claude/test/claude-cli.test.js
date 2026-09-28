@@ -128,6 +128,34 @@ function usageFrame(sessionUsed, weeklyUsed) {
     `\u001b[39;4HCurrent week (all models)\u001b[40;4H${weeklyUsed}% used`;
 }
 
+test('recreates a timed-out PTY and ignores late callbacks from the old process', async (t) => {
+  const children = [];
+  const session = fakeSession(t, () => {});
+  session.timeoutMillis = 180;
+  session.spawn = () => {
+    const child = { killed: false, data: () => {}, exit: () => {} };
+    children.push(child);
+    return {
+      onData(handler) { child.data = handler; },
+      onExit(handler) { child.exit = handler; },
+      write(value) {
+        if (value !== '/usage\r' || children.length === 1) return;
+        children[0].data(usageFrame(99, 99));
+        children[0].exit({ exitCode: 1 });
+        child.data(usageFrame(12, 34));
+      },
+      kill() { child.killed = true; }
+    };
+  };
+  await assert.rejects(session.collect(), /did not return complete plan usage/);
+  assert.equal(children[0].killed, true);
+  assert.equal(session.terminal, null);
+  assert.deepEqual((await session.collect()).windows.map(w => w.usedFraction), [0.12, 0.34]);
+  assert.equal(children.length, 2);
+  session.close();
+  assert.equal(children[1].killed, true);
+});
+
 function fakeSession(t, onUsage) {
   const homeDirectory = mkdtempSync(path.join(os.tmpdir(), 'codexbar-claude-test-'));
   let dataHandler = () => {};

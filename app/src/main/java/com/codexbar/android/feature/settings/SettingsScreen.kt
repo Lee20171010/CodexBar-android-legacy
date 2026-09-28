@@ -111,6 +111,7 @@ import com.codexbar.android.core.domain.model.AppThemeStyle
 import com.codexbar.android.core.domain.model.ProviderAuthMode
 import com.codexbar.android.core.domain.model.ProviderCategory
 import com.codexbar.android.core.domain.model.providerMetadata
+import com.codexbar.android.core.network.antigravity.AntigravityCompanionPairing
 import com.codexbar.android.core.network.claude.ClaudeCompanionPairing
 import com.codexbar.android.core.security.PrivacySettings
 import com.codexbar.android.core.notification.QuotaNotificationService
@@ -426,6 +427,23 @@ fun ConnectionsScreen(
                                 sensitive = true
                             )
                         },
+                        onAntigravityPairingCodeChange = viewModel::updateAntigravityPairingCode,
+                        onScanAntigravityPairing = {
+                            startClaudePairingScan(
+                                context = context,
+                                onPairingCode = viewModel::importAntigravityPairingCode,
+                                onFailure = viewModel::reportAntigravityPairingScanFailure
+                            )
+                        },
+                        onPasteAntigravityPairing = {
+                            val pasted = pairingCodeFromClipboard(context, AntigravityCompanionPairing.PREFIX)
+                            if (pasted == null) {
+                                viewModel.reportAntigravityPairingClipboardEmpty()
+                            } else {
+                                viewModel.importAntigravityPairingCode(pasted)
+                            }
+                        },
+                        onConnectAntigravityCompanion = viewModel::connectAntigravityCompanion,
                         onClaudePairingCodeChange = viewModel::updateClaudePairingCode,
                         onScanClaudePairing = {
                             startClaudePairingScan(
@@ -490,12 +508,12 @@ fun ConnectionsScreen(
  * Reading only the leading token keeps a pasted chat message or e-mail from being rejected for
  * the surrounding text, and anything that is not a pairing code is reported as empty.
  */
-private fun pairingCodeFromClipboard(context: Context): String? {
+private fun pairingCodeFromClipboard(context: Context, prefix: String = ClaudeCompanionPairing.PREFIX): String? {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
     val clip = clipboard?.primaryClip?.takeIf { it.itemCount > 0 } ?: return null
     val text = clip.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
     return text.split(Regex("\\s+"))
-        .firstOrNull { it.startsWith(ClaudeCompanionPairing.PREFIX) }
+        .firstOrNull { it.startsWith(prefix) }
         ?.take(CLIPBOARD_PAIRING_CODE_LIMIT)
 }
 
@@ -936,6 +954,10 @@ private fun ServiceCredentialSection(
     onStartAccountLink: () -> Unit,
     onOpenAccountLink: (String) -> Unit,
     onCopyAccountCode: (String) -> Unit,
+    onAntigravityPairingCodeChange: (String) -> Unit,
+    onScanAntigravityPairing: () -> Unit,
+    onPasteAntigravityPairing: () -> Unit,
+    onConnectAntigravityCompanion: () -> Unit,
     onClaudePairingCodeChange: (String) -> Unit,
     onScanClaudePairing: () -> Unit,
     onPasteClaudePairing: () -> Unit,
@@ -1052,6 +1074,14 @@ private fun ServiceCredentialSection(
 
             if (expanded) {
                 when {
+                    service == AiService.ANTIGRAVITY -> AntigravityCompanionSetup(
+                        state = state,
+                        accent = visualStyle.accent,
+                        onPairingCodeChange = onAntigravityPairingCodeChange,
+                        onScanPairing = onScanAntigravityPairing,
+                        onPastePairing = onPasteAntigravityPairing,
+                        onConnect = onConnectAntigravityCompanion
+                    )
                     service == AiService.CLAUDE -> ClaudeCompanionSetup(
                         state = state,
                         accent = visualStyle.accent,
@@ -1162,7 +1192,7 @@ private fun ServiceCredentialSection(
                     )
                 }
 
-            if (service != AiService.GEMINI && service != AiService.CLAUDE) {
+            if (service != AiService.GEMINI && service != AiService.CLAUDE && service != AiService.ANTIGRAVITY) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.small,
@@ -1197,7 +1227,7 @@ private fun ServiceCredentialSection(
 
             HorizontalDivider(color = visualStyle.accent.copy(alpha = 0.2f))
 
-            if (service != AiService.GEMINI && service != AiService.CLAUDE) {
+            if (service != AiService.GEMINI && service != AiService.CLAUDE && service != AiService.ANTIGRAVITY) {
                 TextButton(
                     onClick = { showManualSetup = !showManualSetup },
                     modifier = Modifier.fillMaxWidth()
@@ -1422,6 +1452,125 @@ private fun CodexTelemetryCompanionSetup(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             CredentialValidationResult(state.codexTelemetryValidationResult, accent)
+        }
+    }
+}
+
+@Composable
+private fun AntigravityCompanionSetup(
+    state: ServiceCredentialState,
+    accent: Color,
+    onPairingCodeChange: (String) -> Unit,
+    onScanPairing: () -> Unit,
+    onPastePairing: () -> Unit,
+    onConnect: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = accent.copy(alpha = 0.11f),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.24f))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.credential_antigravity_companion_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = accent
+            )
+            Text(
+                text = stringResource(R.string.credential_antigravity_companion_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = stringResource(R.string.credential_antigravity_companion_steps),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(
+                onClick = onScanPairing,
+                enabled = !state.isValidating,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Rounded.QrCodeScanner, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.action_scan_antigravity_pairing))
+            }
+            OutlinedButton(
+                onClick = onPastePairing,
+                enabled = !state.isValidating,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Rounded.ContentPaste, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.action_paste_antigravity_pairing))
+            }
+            var pairingCodeVisible by rememberSaveable { mutableStateOf(false) }
+            OutlinedTextField(
+                value = state.antigravityPairingCode,
+                onValueChange = onPairingCodeChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.credential_antigravity_pairing_code)) },
+                supportingText = {
+                    Text(stringResource(R.string.credential_antigravity_pairing_hint))
+                },
+                singleLine = true,
+                visualTransformation = if (pairingCodeVisible) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
+                trailingIcon = {
+                    IconButton(onClick = { pairingCodeVisible = !pairingCodeVisible }) {
+                        Icon(
+                            imageVector = if (pairingCodeVisible) {
+                                Icons.Rounded.VisibilityOff
+                            } else {
+                                Icons.Rounded.Visibility
+                            },
+                            contentDescription = stringResource(
+                                if (pairingCodeVisible) {
+                                    R.string.action_hide_pairing_code
+                                } else {
+                                    R.string.action_show_pairing_code
+                                }
+                            )
+                        )
+                    }
+                },
+                keyboardOptions = secretKeyboardOptions()
+            )
+            Button(
+                onClick = onConnect,
+                enabled = state.antigravityPairingCode.isNotBlank() && !state.isValidating,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (state.isValidating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(
+                    stringResource(
+                        if (state.isConnected) {
+                            R.string.action_repair_antigravity_companion
+                        } else {
+                            R.string.action_pair_antigravity_companion
+                        }
+                    )
+                )
+            }
+            Text(
+                text = stringResource(R.string.credential_antigravity_companion_security),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -1735,6 +1884,7 @@ private fun AccountLinkControls(
                 AiService.CODEX -> stringResource(R.string.account_link_codex_description)
                 AiService.GEMINI -> stringResource(R.string.credential_gemini_companion_body)
                 AiService.COPILOT -> stringResource(R.string.account_link_copilot_description)
+                AiService.ANTIGRAVITY -> stringResource(R.string.credential_antigravity_companion_body)
                 AiService.CLAUDE -> stringResource(R.string.credential_claude_instructions)
                 AiService.CURSOR -> stringResource(R.string.credential_cursor_setup_body)
                 AiService.ZAI -> stringResource(R.string.credential_zai_setup_body)

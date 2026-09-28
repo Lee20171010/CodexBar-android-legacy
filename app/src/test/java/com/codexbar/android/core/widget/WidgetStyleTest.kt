@@ -4,6 +4,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class WidgetStyleTest {
+    @Test fun `compact model names retain family version and reasoning variant`() {
+        assertEquals("G3.1 Pro H", widgetWindowLabel("Gemini 3.1 Pro (High)"))
+        assertEquals("G3.1 Pro L", widgetWindowLabel("Gemini 3.1 Pro (Low)"))
+        assertEquals("G3.6 Fl M", widgetWindowLabel("Gemini 3.6 Flash (Medium)"))
+        assertEquals("S4.6 Think", widgetWindowLabel("Claude Sonnet 4.6 (Thinking)"))
+        assertEquals("O4.6 Think", widgetWindowLabel("Claude Opus 4.6 (Thinking)"))
+        assertEquals("GPT 120B M", widgetWindowLabel("GPT-OSS 120B (Medium)"))
+        assertEquals("5h", widgetWindowLabel("5-Hour"))
+    }
     @Test fun `invalid stored styles safely migrate to the default`() {
         assertEquals(WidgetTemplate.LEDGER, WidgetTemplate.fromId("obsolete"))
         assertEquals(WidgetTemplate.RINGS, WidgetTemplate.fromId("RINGS"))

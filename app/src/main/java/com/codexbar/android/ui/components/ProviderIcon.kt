@@ -17,6 +17,7 @@ import com.codexbar.android.core.domain.model.AiService
 /** Bundled first-party artwork; provenance and notices are in docs/provider-icons.md. */
 @DrawableRes
 fun AiService.providerIcon(): Int = when (this) {
+    AiService.ANTIGRAVITY -> R.drawable.provider_antigravity
     AiService.CLAUDE -> R.drawable.provider_claude
     AiService.CODEX -> R.drawable.provider_codex
     AiService.GEMINI -> R.drawable.provider_gemini
