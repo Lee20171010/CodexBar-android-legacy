@@ -16,7 +16,7 @@ Monitor AI service quotas from your Android device. Track Claude, Codex (ChatGPT
 
 v0.9.4 adds Antigravity desktop model quotas, distinct compact model labels, and Windows tray companions that start at sign-in and recover after failures. Claude also recovers stalled quota sessions automatically. See the [release notes](docs/releases/v0.9.4.md).
 
-- Unified quota monitoring for 20 providers: Claude, Codex, GitHub Copilot, Gemini, Cursor, z.ai, ZenMux, Kimi Code, ElevenLabs, OpenRouter, Synthetic, Chutes, DeepSeek, Venice, Moonshot API, Cline, IBM Bob, Fireworks AI, Devin, and Antigravity
+- Unified quota monitoring for 21 providers: Claude, Codex, GitHub Copilot, Gemini, Cursor, z.ai, ZenMux, Kimi Code, ElevenLabs, OpenRouter, Synthetic, Chutes, DeepSeek, Venice, Moonshot API, Cline, IBM Bob, Fireworks AI, Devin, OpenCode Go, and Antigravity
 - Four complete selectable design systems: the existing Material 3 UI, Liquid Glass, WinUI 3, and Aurora, each with light/dark support
 - A compact Usage overview with official provider icons, a saved custom provider order, two quota windows per provider, symmetric cards, and details on tap
 - Provider cards with animated rings, bars, exact values, reset countdowns, pace forecasts, and retained history charts
@@ -316,6 +316,12 @@ Devin shows **organization ACUs consumed over the last 30 days**, across Devin p
 Create a dedicated Fireworks API key and copy the account slug from the account URL. Enter both in the Fireworks AI card and select **Validate & connect**. The app calls only `https://api.fireworks.ai/v1/accounts/{accountSlug}/billing/summary` and totals rated spend for the last 30 days in the first reported currency.
 
 The account slug is restricted to a short ASCII identifier, the API key is sent only as a bearer credential to the fixed Fireworks HTTPS host, redirects and HTTP logging are disabled, and both values are encrypted with Android Keystore after validation. Prompts, model responses, and inference history are not requested.
+
+### OpenCode Go
+
+Create an API key for OpenCode Go and paste it into the OpenCode Go card, then select **Validate & connect**. The app calls only `https://opencode.ai/zen/go/v1/usage` and displays the provider-reported rolling 5-hour, weekly, and monthly Go plan windows with their reset times.
+
+The key is sent only as a bearer credential to the fixed `opencode.ai` host, redirects and HTTP logging are disabled, and it is encrypted with Android Keystore after validation. Prompts, model responses, and request history are not requested.
 
 ## Build
 

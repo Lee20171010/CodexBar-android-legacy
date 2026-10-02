@@ -217,6 +217,8 @@
     <string name="credential_fireworks_setup_body">Create a dedicated API key in Fireworks AI and enter the account slug from your account URL. CodexBar sends both only to api.fireworks.ai to total rated spend from the last 30 days. It never requests prompts or model responses.</string>
     <string name="credential_account_slug">Account slug</string>
     <string name="credential_fireworks_slug_support">For example, the value after /accounts/ in your Fireworks account URL.</string>
+    <string name="credential_opencode_go_setup_title">OpenCode Go plan usage</string>
+    <string name="credential_opencode_go_setup_body">Create an API key for OpenCode Go and paste it below. CodexBar calls only https://opencode.ai/zen/go/v1/usage to read the rolling 5-hour, weekly, and monthly Go plan usage windows. The key is sent only as a bearer credential to the fixed opencode.ai host, redirects and HTTP logging are disabled, and it is encrypted with Android Keystore after validation.</string>
     <string name="credential_zenmux_management_key">Management API key</string>
     <string name="credential_refresh_token">Refresh Token</string>
     <string name="credential_changes_pending">Changes are not active until validation succeeds.</string>

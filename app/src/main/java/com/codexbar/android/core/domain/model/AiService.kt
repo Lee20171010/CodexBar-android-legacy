@@ -125,5 +125,11 @@ enum class AiService(
         brandColor = 0xFF4285F4,
         baseUrl = "codexbar://antigravity-companion/",
         requiresManualCredentials = false
+    ),
+    OPENCODE_GO(
+        displayName = "OpenCode Go",
+        brandColor = 0xFF2563EB,
+        baseUrl = "https://opencode.ai/",
+        requiresManualCredentials = true
     )
 }

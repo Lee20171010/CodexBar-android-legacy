@@ -63,6 +63,10 @@ class ProviderCatalogTest {
             ProviderSecretKind.API_KEY,
             AiService.FIREWORKS.providerMetadata.secretKind
         )
+        assertEquals(
+            ProviderSecretKind.API_KEY,
+            AiService.OPENCODE_GO.providerMetadata.secretKind
+        )
         assertEquals(true, AiService.FIREWORKS.providerMetadata.requiresAccountReference)
         assertEquals(
             ProviderSecretKind.COOKIE_HEADER,

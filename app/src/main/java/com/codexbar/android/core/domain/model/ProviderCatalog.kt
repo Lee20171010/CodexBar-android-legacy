@@ -159,6 +159,12 @@ object ProviderCatalog {
             aliases = setOf("fireworks", "fireworks ai", "serverless inference", "billing spend"),
             guideAnchor = "fireworks-ai",
             requiresAccountReference = true
+        ),
+        AiService.OPENCODE_GO to ProviderMetadata(
+            category = ProviderCategory.CODING,
+            authMode = ProviderAuthMode.API_KEY,
+            aliases = setOf("opencode", "open code", "opencode go", "open code go"),
+            guideAnchor = "opencode-go"
         )
     )
 

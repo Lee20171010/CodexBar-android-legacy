@@ -15,6 +15,7 @@ This repository now uses layered verification because the app spans credentials,
 | Gemini local pairing | `GeminiCompanionPairingTest`, `GeminiCompanionClientTest`, and `GeminiPairingDeepLinkSourceTest` cover strict private-address parsing, HMAC/AES-GCM exchange, freshness, tamper rejection, and explicit user confirmation. |
 | Gemini desktop companion | Node tests cover CLI-output sanitization, persistent identity, private-address binding, authenticated socket exchange, encryption, and nonce replay rejection; CI also runs `npm audit` against the pinned lockfile. |
 | Retry-After parsing | `RetryAfterTest` and `RetryInterceptorTest` cover malformed, negative, overflow, date, and capped retry behavior. |
+| OpenCode Go usage | `OpenCodeRepositoryImplTest` covers rolling/weekly/monthly window mapping, percent conversion, fixed-endpoint request shape, and auth/rate-limit/service errors. |
 | Token refresh races | `TokenRefreshRetryPolicyTest` covers provider/account-scoped retry state, terminal failure behavior, and account-fingerprint changes. |
 | Presentation snapshot | `QuotaPresentationMapperTest` covers shared labels, bars, freshness, privacy, and extra usage mapping. |
 | Pace/history | `QuotaPaceCalculatorTest` covers sparse samples, reserve, reset windows, and forecast states. |

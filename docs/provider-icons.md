@@ -29,6 +29,7 @@ The source SHA-256 values below identify the downloaded source files (or the nam
 | IBM Bob | [Official Bob product icon](https://bob.ibm.com/icon.svg?v=1) | `2d0239059a21146a37f2b1c365ae83724b564e078b78e1f57990537712ca01a6` |
 | Fireworks AI | [Official product favicon](https://fireworks.ai/icon0.svg?e3d99deadffb6216) | `86b7f4b33ca48c5617f10e2cef5aaa7096c5e798090ceb2d0c21b01273660c76` |
 | Devin | [Official product favicon](https://devin.ai/favicon.svg) | `fe0753d2e3823bc1eb8a37943234fac63733b8c9e8abff0ca0402a6c7ddcd682` |
+| OpenCode Go | [Official favicon](https://opencode.ai/favicon.svg); background tiles dropped so the portal glyph keeps a transparent canvas | `e29bbe33380ad1c1ada9134b52f229d30e9776d60481512c9d81f2bb6f37def9` |
 | Antigravity | Official Windows IDE onboarding asset `resources/app/out/media/jetski-logo-black.svg`; stable 1.107.0, commit `4603c2a412f8c7cca552ff00db91c3ee787016ff`. Original 112×112 path and `#202124` fill preserved in VectorDrawable. | `2154ea6962e12feb7be788539752d7bbe6491a8e9eecec86319dbb3292764867` |
 
 GitHub Primer Octicons is MIT licensed; its notice is retained in [provider-icons-octicons-license.txt](provider-icons-octicons-license.txt). Other artwork follows its provider's brand terms, including [OpenAI](https://openai.com/brand/) and [OpenRouter](https://openrouter.ai/brand).

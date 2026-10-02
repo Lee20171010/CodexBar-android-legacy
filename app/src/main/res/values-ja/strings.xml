@@ -217,6 +217,8 @@
     <string name="credential_fireworks_setup_body">Fireworks AIで専用APIキーを作成し、アカウントURLにあるslugを入力してください。CodexBarは直近30日間の確定支出を集計するため、両方をapi.fireworks.aiだけへ送信します。プロンプトやモデル応答は要求しません。</string>
     <string name="credential_account_slug">アカウントslug</string>
     <string name="credential_fireworks_slug_support">FireworksのアカウントURLで/accounts/の後にある値です。</string>
+    <string name="credential_opencode_go_setup_title">OpenCode Goプラン使用量</string>
+    <string name="credential_opencode_go_setup_body">OpenCode GoのAPIキーを作成し、下へ貼り付けてください。CodexBarはローリング5時間・週間・月間のGoプラン使用量を取得するため、https://opencode.ai/zen/go/v1/usageだけを呼び出します。キーは固定のopencode.aiホストへBearer資格情報としてのみ送信され、リダイレクトとHTTPログは無効化され、検証後にAndroid Keystoreで暗号化されます。</string>
     <string name="credential_zenmux_management_key">Management APIキー</string>
     <string name="credential_refresh_token">更新トークン</string>
     <string name="credential_changes_pending">検証に成功するまで変更は反映されません。</string>

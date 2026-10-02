@@ -37,6 +37,7 @@ fun AiService.providerIcon(): Int = when (this) {
     AiService.IBM_BOB -> R.drawable.provider_ibm_bob
     AiService.FIREWORKS -> R.drawable.provider_fireworks
     AiService.DEVIN -> R.drawable.provider_devin
+    AiService.OPENCODE_GO -> R.drawable.provider_opencode_go
 }
 
 @Composable

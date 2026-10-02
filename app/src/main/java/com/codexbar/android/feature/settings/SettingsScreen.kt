@@ -1180,6 +1180,11 @@ private fun ServiceCredentialSection(
                         body = stringResource(R.string.credential_fireworks_setup_body),
                         accent = visualStyle.accent
                     )
+                    service == AiService.OPENCODE_GO -> ProviderSecretSetupGuide(
+                        title = stringResource(R.string.credential_opencode_go_setup_title),
+                        body = stringResource(R.string.credential_opencode_go_setup_body),
+                        accent = visualStyle.accent
+                    )
                 }
 
                 if (service == AiService.CODEX) {
@@ -1901,6 +1906,7 @@ private fun AccountLinkControls(
                 AiService.IBM_BOB -> stringResource(R.string.credential_ibm_bob_setup_body)
                 AiService.DEVIN -> stringResource(R.string.credential_devin_setup_body)
                 AiService.FIREWORKS -> stringResource(R.string.credential_fireworks_setup_body)
+                AiService.OPENCODE_GO -> stringResource(R.string.credential_opencode_go_setup_body)
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
